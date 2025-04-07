@@ -174,7 +174,7 @@ export default function CourseCard({ item, isHorizontal = false }: CourseCardPro
                         </View>
                     ) : (
                         <View style={styles.horizontalPriceContainer}>
-                            <Text style={styles.price}>{item?.price}đ</Text>
+                            <Text style={styles.price}>{item?.price.toLocaleString()}đ</Text>
                             <Text style={styles.estimatedPrice}>{item?.estimatedPrice}đ</Text>
                         </View>
                     )}
