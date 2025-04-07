@@ -241,7 +241,7 @@ const CartScreen = () => {
                             >
                                 <TouchableOpacity onPress={() => OnHandleCourseDetails(item)}>
                                     <Image
-                                        source={{ uri: `${URL_IMAGES}/${item?.thumbnail?.url ?? ''}` }}
+                                        source={{ uri: item.thumbnail.url ? `${URL_IMAGES}/${item.thumbnail.url}` : `${URL_IMAGES}/${item.thumbnail}`}}
                                         style={{
                                             width: 100,
                                             height: 100,

@@ -1,4 +1,5 @@
 import { Entypo, Feather } from "@expo/vector-icons";
+import React from "react";
 import { useState } from "react"
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
@@ -87,7 +88,7 @@ const CourseLesson = ({ courseDetails }: { courseDetails: CoursesType }) => {
                                     <>
                                         {sectionVideos.map(
                                             (item: CourseDataType, index: number) => (
-                                                <View key={`${index}-a`} style={{ borderWidth: 1, borderColor: "#E1E2E5", borderRadius: 8 }}>
+                                                <View key={`${index}-a`} style={{ borderWidth: 1, borderColor: "#E1E2E5", borderRadius: 8, marginBottom: 10 }}>
                                                     <View style={styles.itemContainer}>
                                                         <View style={styles.itemContainerWrapper}>
                                                             <View style={styles.itemTitleWrapper}>
