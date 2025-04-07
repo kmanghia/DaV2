@@ -1,74 +1,88 @@
-import { Image, StyleSheet, Platform } from 'react-native';
+import HomeScreen from "@/screens/home/home.screen";
+import * as userActions from "../../utils/store/actions/index";
+import { useEffect, useState } from "react";
+import { URL_SERVER } from "@/utils/url";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
+import { useDispatch } from "react-redux";
+import Loader from "@/components/loader";
+import { router } from "expo-router";
 
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+const index = () => {
+    const [loading, setLoading] = useState(false);
+    const dispatch = useDispatch();
+    const [token, setToken] = useState({
+        access: '',
+        refresh: ''
+    });
 
-export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12'
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          Tap the Explore tab to learn more about what's included in this starter app.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          When you're ready, run{' '}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
-  );
+    useEffect(() => {
+        setLoading(true);
+        fetchWishListOfUser();
+        fetchUserInfo();
+    }, [])
+
+    const fetchWishListOfUser = async () => {
+        try {
+            const accessToken = await AsyncStorage.getItem('access_token');
+            const refreshToken = await AsyncStorage.getItem('refresh_token');
+            
+            const response = await axios.get(`${URL_SERVER}/wishlist`, {
+                headers: {
+                    'access-token': accessToken,
+                    'refresh-token': refreshToken
+                }
+            });
+            if(response.data && response.data.data){
+                const _wishList = response.data.data.map((item: any) => ({
+                    _id: item._id,
+                    courseId: item.courseId,
+                    userId: item.userId
+                }));
+                dispatch(userActions.saveWishList(_wishList));
+            }
+        } catch (error) {
+            console.log(error);
+        }
+    }
+
+    const fetchUserInfo = async () => {
+        try {
+            const accessToken = await AsyncStorage.getItem('access_token');
+            const refreshToken = await AsyncStorage.getItem('refresh_token');
+            const response = await axios.get(`${URL_SERVER}/me`, {
+                headers: {
+                    'access-token': accessToken,
+                    'refresh-token': refreshToken
+                }
+            });
+            if(response.data){
+                const {_id, name, email, avatar} = response.data.user;
+                let payload = {
+                    _id, name, email, avatarUrl: avatar?.url
+                };
+                dispatch(userActions.saveUserInfo(payload));
+            }else{
+                console.log("Không tìm thấy người dùng");
+            }
+            setLoading(false);
+        } catch (error) {
+            console.log(error);
+            // router.push("/(routes)/sign-in");
+        }finally{
+            setLoading(false);
+        }
+    }
+
+    return (
+        <>
+            {loading ? (
+                <Loader />
+            ):(
+                <HomeScreen />
+            )}
+        </>
+    )
 }
 
-const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
-});
+export default index;

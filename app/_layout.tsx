@@ -1,21 +1,34 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as SplashScreen from 'expo-splash-screen';
-import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useFonts } from 'expo-font';
+import { useEffect, useState } from 'react';
 import 'react-native-reanimated';
+import { LogBox, View } from 'react-native';
+import OnBoarding from './(routes)/onboard';
+import { Stack } from 'expo-router';
+import { ToastProvider } from 'react-native-toast-notifications';
+import {Provider} from "react-redux";
+import store from '@/utils/store/store';
 
-import { useColorScheme } from '@/hooks/useColorScheme';
+export {
+  ErrorBoundary,
+} from 'expo-router';
 
-// Prevent the splash screen from auto-hiding before asset loading is complete.
+export const unstable_settings = {
+  initialRouteName: '(tabs)',
+};
+
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-  const [loaded] = useFonts({
+  const [loaded, error] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+    ...FontAwesome.font,
   });
+
+  useEffect(() => {
+    if (error) throw error;
+  }, [error]);
 
   useEffect(() => {
     if (loaded) {
@@ -23,17 +36,88 @@ export default function RootLayout() {
     }
   }, [loaded]);
 
+  useEffect(() => {
+    LogBox.ignoreAllLogs(true);
+  }, []);
+
   if (!loaded) {
     return null;
   }
+  return <RootLayoutNav />;
+}
 
+function RootLayoutNav() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <Provider store={store}> 
+      <ToastProvider>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="index" />
+          <Stack.Screen name='(routes)/welcome-intro/index' />
+          <Stack.Screen
+            name='(routes)/course-details/index'
+            options={{
+              headerShown: true,
+              title: "Chi tiết khóa học",
+              headerBackTitle: "Trở về"
+            }}
+          />
+          <Stack.Screen
+            name='(routes)/course-access/index'
+            options={{
+              headerShown: true,
+              title: "Bài giảng khóa học",
+              headerBackTitle: "Trở về"
+            }}
+          />
+          <Stack.Screen
+            name="(routes)/enrolled-courses/index"
+            options={{
+              headerShown: true,
+              title: "Khóa học đã tham gia",
+              headerBackTitle: "Trở về"
+            }}
+          />
+          <Stack.Screen
+            name="(routes)/course-quizz/index"
+            options={{
+              headerShown: true,
+              title: "Bài tập cuối video",
+              headerBackTitle: "Trở về"
+            }}
+          />
+          <Stack.Screen
+            name="(routes)/cart/index"
+            options={{
+              headerShown: true,
+              title: "Khóa học đã chọn",
+              headerBackTitle: "Trở về"
+            }}
+          />
+          <Stack.Screen
+            name='(routes)/profile-details/index'
+            options={{
+              headerShown: true,
+              title: "Chi tiết hồ sơ cá nhân",
+              headerBackTitle: "Trở về"
+            }}
+          />
+          <Stack.Screen 
+            name='(routes)/note-lesson/index'
+            options={{
+              headerShown: true,
+              title: 'Ghi chú bài học',
+              headerBackTitle: "Trở về"
+            }}
+          />
+          <Stack.Screen
+            name='(routes)/forget-password/index'
+          />
+          <Stack.Screen
+            name='(routes)/reset-password/index'
+          />
+        </Stack>
+      </ToastProvider>
+    </Provider>
   );
 }

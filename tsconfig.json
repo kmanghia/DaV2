@@ -6,8 +6,17 @@
       "@/*": [
         "./*"
       ]
-    }
+    },
+    "types": [
+      "expo",
+      "node"
+    ],
+    "module": "amd"
   },
+  "typeRoots": [
+    "./node_modules/@types",
+    "./src/types"
+  ],
   "include": [
     "**/*.ts",
     "**/*.tsx",
