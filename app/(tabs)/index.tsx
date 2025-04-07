@@ -7,6 +7,7 @@ import axios from "axios";
 import { useDispatch } from "react-redux";
 import Loader from "@/components/loader";
 import { router } from "expo-router";
+import React from "react";
 
 const index = () => {
     const [loading, setLoading] = useState(false);

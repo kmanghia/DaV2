@@ -1,9 +1,10 @@
-import { View, TouchableOpacity, StyleSheet, Text } from "react-native";
+import { View, TouchableOpacity, StyleSheet, Text, Animated } from "react-native";
 import { BottomTabBarButtonProps, BottomTabNavigationOptions } from "@react-navigation/bottom-tabs";
 import { AntDesign, Ionicons, Octicons } from "@expo/vector-icons";
 import { 
   widthPercentageToDP as wp
 } from "react-native-responsive-screen";
+import { useRef, useEffect } from "react";
 
 type RouteNames = "index" 
             | "search/index" 
@@ -13,16 +14,33 @@ type RouteNames = "index"
 
             
 const TabBar = ({state, navigation, descriptors}: any) => {
+    // Animation references for each tab item
+    const tabAnimations = useRef<Animated.Value[]>(
+      state.routes.map(() => new Animated.Value(0))
+    ).current;
+
+    useEffect(() => {
+      // Animate the selected tab
+      Animated.parallel(
+        tabAnimations.map((anim, index) => {
+          return Animated.timing(anim, {
+            toValue: state.index === index ? 1 : 0,
+            duration: 250,
+            useNativeDriver: true,
+          });
+        })
+      ).start();
+    }, [state.index]);
 
     const icons = {
-        ['index']: ({color}: {color: string}) => <Octicons name="home" size={20} color={color} />,
-        ['search/index']: ({color}: {color: string}) => <Ionicons name="search" size={20} color={color} />,
-        ['courses/index']: ({color}: {color: string}) => <AntDesign name="book" size={20} color={color} />,
-        ['profile/index']: ({color}: {color: string}) => <AntDesign name="user" size={20} color={color} />,
-        ['wishlist/index']: ({color}: {color: string}) => <AntDesign name="staro" size={20} color={color} />,
+        ['index']: ({color}: {color: string}) => <Octicons name="home" size={24} color={color} />,
+        ['search/index']: ({color}: {color: string}) => <Ionicons name="search" size={24} color={color} />,
+        ['courses/index']: ({color}: {color: string}) => <AntDesign name="book" size={24} color={color} />,
+        ['profile/index']: ({color}: {color: string}) => <AntDesign name="user" size={24} color={color} />,
+        ['wishlist/index']: ({color}: {color: string}) => <AntDesign name="heart" size={24} color={color} />,
     }
-    const primaryColor = '#fff';
-    const greyColor = 'rgba(0, 0, 0, 0.5)';
+    const activeColor = '#0070e0';
+    const inactiveColor = 'rgba(0, 0, 0, 0.5)';
 
     return (
         <View style={[styles.tabBar]}>
@@ -57,6 +75,17 @@ const TabBar = ({state, navigation, descriptors}: any) => {
                 target: route.key,
               });
             };
+            
+            // Animations
+            const scale = tabAnimations[index].interpolate({
+              inputRange: [0, 1],
+              outputRange: [1, 1.2]
+            });
+            
+            const translateY = tabAnimations[index].interpolate({
+              inputRange: [0, 1],
+              outputRange: [0, -5]
+            });
     
             return (
               <TouchableOpacity
@@ -67,16 +96,47 @@ const TabBar = ({state, navigation, descriptors}: any) => {
                 testID={options.tabBarTestID}
                 onPress={onPress}
                 onLongPress={onLongPress}
-                style={[styles.tabBarItem]}
+                style={[
+                  styles.tabBarItem,
+                ]}
               >
-                {
-                    icons[routeName as RouteNames]?.({
-                        color: isFocused ? primaryColor : greyColor
-                    })
-                }
-                <Text style={{ color: isFocused ? primaryColor : greyColor }}>
-                  {label + ''}
-                </Text>
+                <Animated.View 
+                  style={[
+                    styles.tabContent,
+                    { 
+                      transform: [
+                        { scale },
+                        { translateY }
+                      ] 
+                    }
+                  ]}
+                >
+                  {
+                      icons[routeName as RouteNames]?.({
+                          color: isFocused ? activeColor : inactiveColor
+                      })
+                  }
+                  <Text style={[
+                    styles.tabText, 
+                    { color: isFocused ? activeColor : inactiveColor }
+                  ]}>
+                    {label + ''}
+                  </Text>
+                </Animated.View>
+                {isFocused && (
+                  <Animated.View 
+                    style={[
+                      styles.activeIndicator,
+                      { 
+                        opacity: tabAnimations[index],
+                        width: tabAnimations[index].interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0, 20]
+                        })
+                      }
+                    ]} 
+                  />
+                )}
               </TouchableOpacity>
             );
           })}
@@ -89,26 +149,40 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        backgroundColor: '#0085ff',
-        paddingVertical: 15,
-        paddingHorizontal: 10,
-        borderCurve: 'continuous',
-        borderRadius: 20,
-        marginBottom: 10,
-        marginHorizontal: 'auto',
-        width: wp(96),
-        shadowColor: 'black',
+        backgroundColor: '#ffffff',
+        paddingVertical: 10,
+        paddingHorizontal: 5,
+        width: '100%',
+        shadowColor: '#000',
         shadowOffset: {
             width: 0,
-            height: 10
+            height: 2
         },
-        shadowRadius: 10,
-        shadowOpacity: 0.1
+        shadowRadius: 8,
+        shadowOpacity: 0.1,
+        elevation: 5
     },
     tabBarItem: {
         flex: 1,
         justifyContent: 'center',
-        alignItems: 'center'
+        alignItems: 'center',
+        paddingVertical: 8,
+    },
+    tabContent: {
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    tabText: {
+        fontSize: 12,
+        marginTop: 4,
+        fontWeight: '500',
+    },
+    activeIndicator: {
+        height: 3,
+        backgroundColor: '#0070e0',
+        borderRadius: 3,
+        position: 'absolute',
+        bottom: 0,
     }
 })
 

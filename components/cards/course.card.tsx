@@ -118,7 +118,7 @@ export default function CourseCard({ item, isHorizontal = false }: CourseCardPro
                 <View style={{ position: 'relative' }}>
                     <Image
                         style={styles.horizontalImage}
-                        source={{ uri: `${URL_IMAGES}/${item.thumbnail?.url}`}}
+                        source={{ uri: item.thumbnail.url ? `${URL_IMAGES}/${item.thumbnail.url}` : `${URL_IMAGES}/${item.thumbnail}`}}
                     />
                     <View style={styles.wishBtnContainer}>
                         {!wishState && (
@@ -175,7 +175,7 @@ export default function CourseCard({ item, isHorizontal = false }: CourseCardPro
                     ) : (
                         <View style={styles.horizontalPriceContainer}>
                             <Text style={styles.price}>{item?.price.toLocaleString()}đ</Text>
-                            <Text style={styles.estimatedPrice}>{item?.estimatedPrice}đ</Text>
+                            <Text style={styles.estimatedPrice}>{item?.estimatedPrice?.toLocaleString()}đ</Text>
                         </View>
                     )}
                 </View>
@@ -202,7 +202,7 @@ export default function CourseCard({ item, isHorizontal = false }: CourseCardPro
                         alignSelf: "center",
                         objectFit: "cover",
                     }}
-                    source={{ uri: `${URL_IMAGES}/${item.thumbnail?.url}`}}
+                    source={{ uri: item.thumbnail.url ? `${URL_IMAGES}/${item.thumbnail.url}` : `${URL_IMAGES}/${item.thumbnail}`}}
                 />
                 <View 
                     style={{
@@ -293,7 +293,7 @@ export default function CourseCard({ item, isHorizontal = false }: CourseCardPro
                     >
                         <View style={{ flexDirection: "row" }}>
                             <Text style={{ paddingTop: 10, fontSize: 18, fontWeight: "600" }}>
-                                {item?.price}đ
+                                {item?.price?.toLocaleString()}đ
                             </Text>
                             <Text
                                 style={{
@@ -303,7 +303,7 @@ export default function CourseCard({ item, isHorizontal = false }: CourseCardPro
                                     fontWeight: "400",
                                 }}
                             >
-                                {item?.estimatedPrice}đ
+                                {item?.estimatedPrice?.toLocaleString()}đ
                             </Text>
                         </View>
                         <View

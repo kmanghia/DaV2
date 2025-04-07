@@ -232,7 +232,7 @@ const CourseDetailsScreen = () => {
                                                 paddingVertical: 10,
                                             }}
                                         >
-                                            {courseData?.price}đ
+                                            {courseData?.price?.toLocaleString()}đ
                                         </Text>
                                         <Text
                                             style={{
@@ -242,7 +242,7 @@ const CourseDetailsScreen = () => {
                                                 textDecorationLine: "line-through",
                                             }}
                                         >
-                                            {courseData?.estimatedPrice}đ
+                                            {courseData?.estimatedPrice?.toLocaleString()}đ
                                         </Text>
                                     </View>
                                 </View>

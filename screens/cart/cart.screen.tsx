@@ -10,6 +10,7 @@ import EmptyCart from "@/assets/images/empty_cart.png";
 import { Toast } from "react-native-toast-notifications";
 import { useDispatch } from "react-redux";
 import * as userActions from "../../utils/store/actions"; 
+import React from "react";
 
 const CartScreen = () => {
     const navigation = useNavigation();

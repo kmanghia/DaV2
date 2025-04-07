@@ -21,6 +21,7 @@ import { Nunito_400Regular, Nunito_500Medium, Nunito_700Bold, Nunito_600SemiBold
 import { Raleway_600SemiBold, Raleway_700Bold } from "@expo-google-fonts/raleway";
 import { useFonts } from "expo-font";
 import { AntDesign, Entypo, Octicons } from "@expo/vector-icons";
+import React from "react";
 
 const CourseQuizzScreen = () => {
     const { courseData, activeVideo, id } = useLocalSearchParams();

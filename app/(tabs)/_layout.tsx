@@ -8,11 +8,15 @@ const TabsLayout = () => {
 
     return (
         <ToastProvider>
-            <SafeAreaView style={{ flex: 1 }}>
+            <SafeAreaView style={{ flex: 1, backgroundColor: "#ffffff" }}>
                 <Tabs
                     tabBar={(props: any) => <TabBar {...props}/>}
                     screenOptions={{
                         headerShown: false,
+                        tabBarStyle: { elevation: 0 },
+                    }}
+                    sceneContainerStyle={{
+                        backgroundColor: "#ffffff"
                     }}
                 >
                     <Tabs.Screen 

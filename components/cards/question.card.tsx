@@ -2,6 +2,7 @@ import { URL_IMAGES, URL_SERVER } from "@/utils/url";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
+import React from "react";
 import { useState } from "react";
 import { Image, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { widthPercentageToDP } from "react-native-responsive-screen";
