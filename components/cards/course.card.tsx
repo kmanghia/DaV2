@@ -1,7 +1,7 @@
 import { AntDesign, FontAwesome, FontAwesome5, Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Image } from "react-native";
+import { useEffect, useState, useRef } from "react";
+import { View, Text, TouchableOpacity, StyleSheet, Image, Animated } from "react-native";
 import {
     widthPercentageToDP as wp,
     heightPercentageToDP as hp,
@@ -26,6 +26,9 @@ export default function CourseCard({ item, isHorizontal = false }: CourseCardPro
     const wishList = useSelector((state: any) => state.user.wishList);
     const [idWishCourse, setIdWishCourse] = useState('');
     const dispatch = useDispatch();
+    
+    // Animation
+    const scaleAnim = useRef(new Animated.Value(1)).current;
 
     useEffect(() => {
         const isWished = wishList.find((_item: any) => _item.courseId === item._id);
@@ -63,6 +66,20 @@ export default function CourseCard({ item, isHorizontal = false }: CourseCardPro
 
     const onAddToWishList = async () => {
         try {
+            // Animation
+            Animated.sequence([
+                Animated.timing(scaleAnim, {
+                    toValue: 1.3,
+                    duration: 150,
+                    useNativeDriver: true
+                }),
+                Animated.timing(scaleAnim, {
+                    toValue: 1,
+                    duration: 150,
+                    useNativeDriver: true
+                })
+            ]).start();
+            
             const accessToken = await AsyncStorage.getItem('access_token');
             const refreshToken = await AsyncStorage.getItem('refresh_token');
             const response = await axios.post(`${URL_SERVER}/wishlist`, {
@@ -86,6 +103,20 @@ export default function CourseCard({ item, isHorizontal = false }: CourseCardPro
 
     const onRemoveFromWishList = async () => {
         try {
+            // Animation
+            Animated.sequence([
+                Animated.timing(scaleAnim, {
+                    toValue: 1.3,
+                    duration: 150,
+                    useNativeDriver: true
+                }),
+                Animated.timing(scaleAnim, {
+                    toValue: 1,
+                    duration: 150,
+                    useNativeDriver: true
+                })
+            ]).start();
+            
             const accessToken = await AsyncStorage.getItem('access_token');
             const refreshToken = await AsyncStorage.getItem('refresh_token');
             await axios.delete(`${URL_SERVER}/wishlist?id=${idWishCourse}`, {
@@ -121,20 +152,25 @@ export default function CourseCard({ item, isHorizontal = false }: CourseCardPro
                         source={{ uri: item.thumbnail.url ? `${URL_IMAGES}/${item.thumbnail.url}` : `${URL_IMAGES}/${item.thumbnail}`}}
                     />
                     <View style={styles.wishBtnContainer}>
-                        {!wishState && (
+                        {!wishState ? (
                             <TouchableOpacity
                                 onPress={() => onAddToWishList()}
                                 style={styles.wishBtn}
+                                activeOpacity={0.7}
                             >
-                                <AntDesign name="hearto" size={16} color="white" />
+                                <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+                                    <AntDesign name="hearto" size={15} color="#FF385C" style={styles.heartIcon} />
+                                </Animated.View>
                             </TouchableOpacity>
-                        )}
-                        {wishState && (
+                        ) : (
                             <TouchableOpacity
                                 onPress={() => onRemoveFromWishList()}
                                 style={styles.wishBtn}
+                                activeOpacity={0.7}
                             >
-                                <AntDesign name="heart" size={16} color="rgba(255, 0, 0, 0.6)" />
+                                <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+                                    <AntDesign name="heart" size={15} color="#FF385C" style={styles.heartIcon} />
+                                </Animated.View>
                             </TouchableOpacity>
                         )}
                     </View>
@@ -212,20 +248,25 @@ export default function CourseCard({ item, isHorizontal = false }: CourseCardPro
                         right: 10
                     }}
                 >
-                    { !wishState && (
+                    {!wishState ? (
                         <TouchableOpacity
                             onPress={() => onAddToWishList()}
                             style={styles.wishBtn}
+                            activeOpacity={0.7}
                         >
-                            <AntDesign name="hearto" size={18} color="white" />
+                            <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+                                <AntDesign name="hearto" size={15} color="#FF385C" style={styles.heartIcon} />
+                            </Animated.View>
                         </TouchableOpacity>
-                    )}
-                    { wishState && (
+                    ) : (
                         <TouchableOpacity
                             onPress={() => onRemoveFromWishList()}
                             style={styles.wishBtn}
+                            activeOpacity={0.7}
                         >
-                            <AntDesign name="heart" size={18} color="rgba(255, 0, 0, 0.6)" />
+                            <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+                                <AntDesign name="heart" size={15} color="#FF385C" style={styles.heartIcon} />
+                            </Animated.View>
                         </TouchableOpacity>
                     )}
                 </View>
@@ -340,13 +381,24 @@ const styles = StyleSheet.create({
         color: "white",
         fontSize: 14,
     },
-    wishBtn:{
-        borderRadius: 12,
-        width: 42,
-        height: 42,
+    wishBtn: {
+        borderRadius: 20,
+        width: 30,
+        height: 30,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: 'rgba(250, 202, 30, 0.8)'
+        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.15,
+        shadowRadius: 2,
+        elevation: 2,
+    },
+    heartIcon: {
+        fontSize: 16
     },
     
     // Horizontal styles
