@@ -226,6 +226,24 @@ const ProfileScreen = () => {
                                 </View>
                             </TouchableOpacity>
                             
+                            {/* Privacy Policy */}
+                            <TouchableOpacity
+                                style={styles.menuItem}
+                                onPress={() => router.push("/(routes)/privacy")}
+                            >
+                                <View style={styles.menuIconContainer}>
+                                    <MaterialIcons name="privacy-tip" size={22} color="#2467EC" />
+                                </View>
+                                
+                                <View style={styles.menuContent}>
+                                    <View>
+                                        <Text style={styles.menuItemTitle}>Chính sách bảo mật</Text>
+                                        <Text style={styles.menuItemSubtitle}>Quy định về quyền riêng tư</Text>
+                                    </View>
+                                    <AntDesign name="right" size={20} color="#CBD5E0" />
+                                </View>
+                            </TouchableOpacity>
+                            
                             {/* Logout */}
                             <TouchableOpacity
                                 style={styles.menuItem}

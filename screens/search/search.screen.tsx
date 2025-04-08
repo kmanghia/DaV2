@@ -81,12 +81,12 @@ const styles = StyleSheet.create({
     courseItem: {
         backgroundColor: "white",
         borderRadius: 12,
-        marginBottom: 12,
+        marginBottom: 20,
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 2,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.25,
+        shadowRadius: 5,
+        elevation: 4,
         overflow: "hidden",
     },
     courseContent: {
