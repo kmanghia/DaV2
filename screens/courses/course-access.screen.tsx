@@ -1,46 +1,307 @@
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import QuestionsCard from "@/components/cards/question.card";
 import ReviewCard from "@/components/cards/review.card";
 import Loader from "@/components/loader";
 import useUser from "@/hooks/useUser";
 import { URL_SERVER, URL_VIDEO, URL_VIDEOS } from "@/utils/url";
-import { Feather, FontAwesome } from "@expo/vector-icons";
+import { Feather, FontAwesome, AntDesign, MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Animated, Dimensions, PanResponder, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native"
+import { Animated, Dimensions, FlatList, Linking, Modal, PanResponder, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native"
 import { widthPercentageToDP } from "react-native-responsive-screen";
 import { Toast } from "react-native-toast-notifications";
 import app from "../../app.json";
 import { Video, ResizeMode } from 'expo-av';
 import { useDispatch } from "react-redux";
 import * as userActions from '../../utils/store/actions';
+import { LinearGradient } from 'expo-linear-gradient';
+
+const { width } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: "#f8f9fe",
+        padding: 15,
+    },
+    videoContainer: {
+        width: "100%", 
+        aspectRatio: 16 / 9, 
+        borderRadius: 16,
+        overflow: 'hidden',
+        marginBottom: 15,
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 4,
+        },
+        shadowOpacity: 0.3,
+        shadowRadius: 5,
+        elevation: 6,
+    },
+    navigationContainer: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        marginBottom: 20,
+    },
     button: {
-        width: widthPercentageToDP("40%"),
-        height: 40,
-        backgroundColor: "#2467EC",
+        width: widthPercentageToDP("42%"),
+        height: 48,
         marginVertical: 10,
-        borderRadius: 40,
+        borderRadius: 24,
         alignItems: "center",
         justifyContent: "center",
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+        elevation: 5,
     },
     textBtn: {
         color: "white",
         fontSize: 16,
+        fontWeight: "600",
+        fontFamily: "Nunito_600SemiBold"
+    },
+    title: {
+        fontSize: 22,
+        fontWeight: "bold",
+        marginBottom: 15,
+        color: "#1a1a2e",
+    },
+    tabContainer: {
+        flexDirection: "row",
+        marginVertical: 0,
+        backgroundColor: "#E1E9F8",
+        borderRadius: 50,
+        width: '100%',
+        justifyContent: "space-between",
+        padding: 4,
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+        elevation: 3,
+    },
+    tabButton: {
+        flex: 1,
+        paddingVertical: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: 50,
+    },
+    tabText: {
+        fontSize: 16,
+        fontFamily: "Nunito_600SemiBold"
+    },
+    contentContainer: {
+        marginVertical: 20,
+        paddingBottom: 100,
+    },
+    inputContainer: {
+        backgroundColor: "#FFF",
+        borderRadius: 16,
+        padding: 15,
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+        elevation: 2,
+        marginBottom: 15,
+    },
+    input: {
+        flex: 1,
+        textAlignVertical: "top",
+        justifyContent: "flex-start",
+        backgroundColor: "#FFF",
+        borderRadius: 12,
+        minHeight: 100,
+        padding: 12,
+        fontFamily: "Nunito_500Medium",
+        fontSize: 16,
+        borderWidth: 1,
+        borderColor: "#E1E9F8",
+    },
+    actionButton: {
+        height: 45,
+        minWidth: 130,
+        borderRadius: 25,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 20,
+        flexDirection: 'row',
+        gap: 8,
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        elevation: 4,
+    },
+    referenceContainer: {
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        justifyContent: 'space-between',
+        marginBottom: 8,
+    },
+    noteButton: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 5 },
+        shadowOpacity: 0.3,
+        shadowRadius: 6.27,
+        elevation: 10,
+    },
+    linkItem: {
+        paddingVertical: 6,
+        marginVertical: 3,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f0f0f0',
+    },
+    linkTitle: {
+        fontSize: 15,
+        fontWeight: "500",
+        color: "#2467EC",
+        marginBottom: 3,
+        fontFamily: "Nunito_500Medium",
+        textDecorationLine: 'underline',
+    },
+    linkUrl: {
+        fontSize: 14,
+        color: "#2467EC",
+        fontFamily: "Nunito_500Medium"
+    },
+    description: {
+        color: "#525258", 
+        fontSize: 15,
+        marginTop: 10,
+        lineHeight: 22,
         textAlign: "justify",
         fontFamily: "Nunito_500Medium"
     },
-    btn:{
-        height: 30,
-        minWidth: 100,
-        backgroundColor: '#0085ff',
-        borderRadius: 4,
-        borderColor: 'transparent',
+    descriptionWithBorder: {
+        borderTopWidth: 1,
+        borderTopColor: '#f0f0f0',
+        paddingTop: 8,
+    },
+    lessonListButton: {
+        position: 'absolute',
+        top: 10,
+        right: 10,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(0,0,0,0.5)',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingHorizontal: 20
+        zIndex: 10,
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+    },
+    modalContent: {
+        width: '90%',
+        maxHeight: '80%',
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        padding: 16,
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+        elevation: 5,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f0f0f0',
+        paddingBottom: 10,
+    },
+    modalTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#2467EC',
+    },
+    lessonItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f0f0f0',
+    },
+    activeLesson: {
+        backgroundColor: '#f0f7ff',
+    },
+    lessonNumber: {
+        width: 30,
+        height: 30,
+        borderRadius: 15,
+        backgroundColor: '#2467EC',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 10,
+    },
+    lessonNumberText: {
+        color: 'white',
+        fontWeight: 'bold',
+    },
+    lessonTitle: {
+        flex: 1,
+        fontSize: 16,
+        color: '#333',
+    },
+    completedIcon: {
+        marginLeft: 10,
+        color: '#35B58D',
+    },
+    contentFrame: {
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: 12,
+        marginTop: 10,
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+        elevation: 2,
+    },
+    sectionTitle: {
+        fontSize: 15,
+        fontWeight: "600",
+        color: "#1a1a2e",
+        marginBottom: 8,
+        fontFamily: "Nunito_600SemiBold"
     }
 });
 
@@ -67,11 +328,31 @@ const CourseAccessScreen = () => {
     const [lessonInfo, setLessonInfo] = useState<Chapter>({
         chapterId: "",
         isCompleted: false
-    })
+    });
+    const [isLessonListVisible, setIsLessonListVisible] = useState(false);
+    
     const dispatch = useDispatch();
     const videoRef = useRef<Video>(null);
-
     
+    // Animation values
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+    const slideAnim = useRef(new Animated.Value(50)).current;
+    
+    useEffect(() => {
+        Animated.parallel([
+            Animated.timing(fadeAnim, {
+                toValue: 1,
+                duration: 500,
+                useNativeDriver: true,
+            }),
+            Animated.timing(slideAnim, {
+                toValue: 0,
+                duration: 500,
+                useNativeDriver: true,
+            })
+        ]).start();
+    }, []);
+
     useEffect(() => {
         if (courseContentData[activeVideo]) {
             loadVideoAndChapterState();
@@ -292,9 +573,9 @@ const CourseAccessScreen = () => {
                 <TouchableOpacity key={i} onPress={() => setRating(i)}>
                     <FontAwesome
                         name={i <= rating ? "star" : "star-o"}
-                        size={20}
+                        size={22}
                         color={"#FF8D07"}
-                        style={{ marginHorizontal: 2, marginBottom: 10 }}
+                        style={{ marginHorizontal: 3, marginBottom: 10 }}
                     />
                 </TouchableOpacity>
             )
@@ -302,13 +583,35 @@ const CourseAccessScreen = () => {
         return stars;
     }
 
+    const handleLessonSelect = (index: number) => {
+        setActiveVideo(index);
+        setIsLessonListVisible(false);
+    };
+    
+    const isLessonCompleted = (chapterId: string) => {
+        return courseProgress?.chapters.some(
+            chapter => chapter.chapterId === chapterId && chapter.isCompleted
+        ) || false;
+    };
+
     return (
         <>
             {isLoading ? (
                 <Loader />
             ) : (
-                <ScrollView style={{ flex: 1, padding: 10 }}>
-                    <View style={{ width: "100%", aspectRatio: 18 / 9, borderRadius: 10 }}>
+                <ScrollView style={styles.container}>
+                    <Animated.View 
+                        style={[
+                            styles.videoContainer, 
+                            { opacity: fadeAnim, transform: [{ translateY: slideAnim }] 
+                        }]}>
+                        <TouchableOpacity 
+                            style={styles.lessonListButton}
+                            onPress={() => setIsLessonListVisible(true)}
+                        >
+                            <MaterialIcons name="format-list-bulleted" size={24} color="white" />
+                        </TouchableOpacity>
+                        
                         {videoData ? (
                             <Video 
                                 ref={videoRef}
@@ -319,7 +622,7 @@ const CourseAccessScreen = () => {
                                         'refresh-token': token.refresh
                                     }
                                 }}
-                                style={{width: widthPercentageToDP(90), marginHorizontal: 'auto', height: 200}}
+                                style={{width: '100%', height: '100%'}}
                                 useNativeControls
                                 resizeMode={ResizeMode.CONTAIN}
                                 onError={(error) => console.log('Video Error:', error)}
@@ -329,110 +632,111 @@ const CourseAccessScreen = () => {
                                 isMuted={false}
                             />
                         ) : (
-                            <View style={{width: widthPercentageToDP(90), marginHorizontal: 'auto', height: 200, backgroundColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center'}}>
+                            <View style={{width: '100%', height: 200, backgroundColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center'}}>
                                 <Text>Loading video...</Text>
                             </View>
                         )}
-                    </View>
-                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                    </Animated.View>
+                    
+                    <View style={styles.navigationContainer}>
                         <TouchableOpacity
-                            style={[styles.button, { backgroundColor: `${activeVideo === 0 ? '#ccc' : '#2467EC'}` }]}
                             disabled={activeVideo === 0}
                             onPress={() => setActiveVideo(activeVideo - 1)}
                         >
-                            <Text style={{ color: "#FFF", fontSize: 16, fontWeight: "600" }}>
-                                {"Quay lại"}
-                            </Text>
+                            <LinearGradient
+                                colors={activeVideo === 0 ? ['#a0a0a0', '#888888'] : ['#5D87E4', '#4776E6']}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                                style={styles.button}
+                            >
+                                <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
+                                    <AntDesign name="left" size={16} color="#FFF" />
+                                    <Text style={styles.textBtn}>Quay lại</Text>
+                                </View>
+                            </LinearGradient>
                         </TouchableOpacity>
+                        
                         <TouchableOpacity
-                            style={[styles.button, { backgroundColor: `${(activeVideo === courseContentData.length - 1) ? '#ccc' : '#2467EC'}` }]}
                             disabled={activeVideo === courseContentData.length - 1}
                             onPress={() => setActiveVideo(activeVideo + 1)}
                         >
-                            <Text style={{ color: "#FFF", fontSize: 16, fontWeight: "600" }}>
-                                {"Tiếp theo"}
-                            </Text>
+                            <LinearGradient
+                                colors={(activeVideo === courseContentData.length - 1) ? ['#a0a0a0', '#888888'] : ['#E56767', '#D84848']}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                                style={styles.button}
+                            >
+                                <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
+                                    <Text style={styles.textBtn}>Tiếp theo</Text>
+                                    <AntDesign name="right" size={16} color="#FFF" />
+                                </View>
+                            </LinearGradient>
                         </TouchableOpacity>
                     </View>
-                    <View style={{ paddingVertical: 10 }}>
-                        <Text style={{ fontSize: 20, fontWeight: "bold" }}>
+                    
+                    <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+                        <Text style={styles.title}>
                             {activeVideo + 1}. {courseContentData[activeVideo]?.title}
                         </Text>
-                    </View>
-                    <View
-                        style={{
-                            flexDirection: "row",
-                            marginTop: 10,
-                            marginHorizontal: 0,
-                            backgroundColor: "#E1E9F8",
-                            borderRadius: 50,
-                            gap: 10,
-                            justifyContent: "space-between"
-                        }}
-                    >
+                    </Animated.View>
+                    
+                    <View style={styles.tabContainer}>
                         <TouchableOpacity
-                            style={{
-                                paddingVertical: 10,
-                                paddingHorizontal: 36,
-                                backgroundColor: activeButton === "About" ? "#2467EC" : "transparent",
-                                borderRadius: activeButton === "About" ? 50 : 0
-                            }}
+                            style={[
+                                styles.tabButton,
+                                {backgroundColor: activeButton === "About" ? "#2467EC" : "transparent"}
+                            ]}
                             onPress={() => setActiveButton("About")}
                         >
                             <Text
-                                style={{
-                                    color: activeButton === "About" ? "#FFF" : "#000",
-                                    fontFamily: "Nunito_600SemiBold"
-                                }}
+                                style={[
+                                    styles.tabText,
+                                    {color: activeButton === "About" ? "#FFF" : "#333"}
+                                ]}
                             >
                                 Chi tiết
                             </Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                            style={{
-                                paddingVertical: 10,
-                                paddingHorizontal: 36,
-                                borderRadius: activeButton === "Q&A" ? 50 : 0,
-                                backgroundColor: activeButton === "Q&A" ? "#2467EC" : "transparent"
-                            }}
+                            style={[
+                                styles.tabButton,
+                                {backgroundColor: activeButton === "Q&A" ? "#2467EC" : "transparent"}
+                            ]}
                             onPress={() => setActiveButton("Q&A")}
                         >
                             <Text
-                                style={{
-                                    color: activeButton === "Q&A" ? "#FFF" : "#000",
-                                    fontFamily: "Nunito_600SemiBold"
-                                }}
+                                style={[
+                                    styles.tabText,
+                                    {color: activeButton === "Q&A" ? "#FFF" : "#333"}
+                                ]}
                             >
                                 Hỏi đáp
                             </Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                            style={{
-                                paddingVertical: 10,
-                                paddingHorizontal: 30,
-                                borderRadius: activeButton === "Reviews" ? 50 : 0,
-                                backgroundColor: activeButton === "Reviews" ? "#2467EC" : "transparent"
-                            }}
+                            style={[
+                                styles.tabButton,
+                                {backgroundColor: activeButton === "Reviews" ? "#2467EC" : "transparent"}
+                            ]}
                             onPress={() => setActiveButton("Reviews")}
                         >
                             <Text
-                                style={{
-                                    color: activeButton === "Reviews" ? "#FFF" : "#000",
-                                    fontFamily: "Nunito_600SemiBold"
-                                }}
+                                style={[
+                                    styles.tabText,
+                                    {color: activeButton === "Reviews" ? "#FFF" : "#333"}
+                                ]}
                             >
                                 Đánh giá
                             </Text>
                         </TouchableOpacity>
                     </View>
+                    
                     {activeButton === "About" && (
-                        <View
-                            style={{
-                                marginHorizontal: 10,
-                                marginVertical: 25,
-                                paddingHorizontal: 0,
-                                height: 600
-                            }}
+                        <Animated.View
+                            style={[
+                                styles.contentContainer,
+                                { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }
+                            ]}
                         >
                             <View style={{marginVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 10}}>
                                 <TouchableOpacity
@@ -444,51 +748,62 @@ const CourseAccessScreen = () => {
                                             id: courseId
                                         }
                                     })}
-                                    style={styles.btn}
+                                >
+                                    <LinearGradient
+                                        colors={['#4A90E2', '#5A9AE6']}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 0 }}
+                                        style={styles.actionButton}
                                     >
                                         <Text style={styles.textBtn}>
                                             Kiểm tra
                                         </Text>
+                                        <AntDesign name="form" size={16} color="white" />
+                                    </LinearGradient>
                                 </TouchableOpacity>
+                                
                                 { lessonInfo.isCompleted ? (
                                     <TouchableOpacity
-                                        style={[styles.btn, {marginLeft: 'auto', flexDirection: 'row', flexWrap: 'nowrap', gap: 4, alignItems: 'center', backgroundColor: '#237867'}]}
+                                        style={{marginLeft: 'auto'}}
                                     >
-                                        <Text style={styles.textBtn}>
-                                            Đã hoàn thành
-                                        </Text>
-                                        <Feather name="check-circle" size={18} color="white" />
+                                        <LinearGradient
+                                            colors={['#2E9E7A', '#35B58D']}
+                                            start={{ x: 0, y: 0 }}
+                                            end={{ x: 1, y: 0 }}
+                                            style={styles.actionButton}
+                                        >
+                                            <Text style={styles.textBtn}>
+                                                Đã hoàn thành
+                                            </Text>
+                                            <Feather name="check-circle" size={18} color="white" />
+                                        </LinearGradient>
                                     </TouchableOpacity>
                                 ):(
-                                <TouchableOpacity
-                                    onPress={() => OnMarkAsCompleted()}
-                                    style={[styles.btn, {marginLeft: 'auto', flexDirection: 'row', flexWrap: 'nowrap', gap: 4, alignItems: 'center'}]}
+                                    <TouchableOpacity
+                                        onPress={() => OnMarkAsCompleted()}
+                                        style={{marginLeft: 'auto'}}
                                     >
-                                        <Text style={styles.textBtn}>
-                                            Đánh dấu hoàn thành
-                                        </Text>
-                                </TouchableOpacity>
+                                        <LinearGradient
+                                            colors={['#4776E6', '#5D87E4']}
+                                            start={{ x: 0, y: 0 }}
+                                            end={{ x: 1, y: 0 }}
+                                            style={styles.actionButton}
+                                        >
+                                            <Text style={styles.textBtn}>
+                                                Đánh dấu hoàn thành
+                                            </Text>
+                                            <Feather name="check" size={18} color="white" />
+                                        </LinearGradient>
+                                    </TouchableOpacity>
                                 )}
                             </View>
-                            <View style={{flexDirection: 'column', gap: 5}}>
-                                <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
-                                    <Text style={{ fontSize: 18, fontFamily: "Raleway_700Bold" }}>
-                                        Tham khảo
+                            
+                            <View style={{marginTop: 20}}>
+                                <View style={styles.referenceContainer}>
+                                    <Text style={{ fontSize: 20, fontWeight: "bold", color: "#1a1a2e" }}>
+                                        Nội dung
                                     </Text>
                                     <TouchableOpacity
-                                        style={{
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            width: 40,
-                                            height: 40,
-                                            borderRadius: 50,
-                                            backgroundColor: '#0085ff',
-                                            shadowColor: '#000', // Màu bóng
-                                            shadowOffset: { width: 0, height: 5 }, // Độ lệch bóng
-                                            shadowOpacity: 0.3, // Độ mờ của bóng
-                                            shadowRadius: 6.27, // Độ lớn của bóng
-                                            elevation: 10, // Độ cao của bóng trên Android
-                                        }}
                                         onPress={() => router.push({
                                             pathname: '/(routes)/note-lesson',
                                             params: {
@@ -499,168 +814,221 @@ const CourseAccessScreen = () => {
                                             }
                                         })}
                                     >
-                                        <FontAwesome name="sticky-note" size={18} color="white" />
+                                        <LinearGradient
+                                            colors={['#E67E5D', '#E67E5D']}
+                                            start={{ x: 0, y: 0 }}
+                                            end={{ x: 1, y: 0 }}
+                                            style={styles.noteButton}
+                                        >
+                                            <FontAwesome name="sticky-note" size={20} color="white" />
+                                        </LinearGradient>
                                     </TouchableOpacity> 
                                 </View>
-                                {courseContentData[activeVideo]?.links.map((link: LinkType, index: number) => (
-                                    <View
-                                        key={`indexavjkahfkahkas-${index}`}
-                                        style={{
-                                            width: "100%",
-                                            flexDirection: "column",
-                                        }}>
-                                        <Text
-                                            style={{
-                                                color: "#525258",
-                                                fontSize: 16,
-                                                marginTop: 10,
-                                                textAlign: "justify",
-                                                fontFamily: "Nunito_500Medium"
-                                            }}
-                                        >
-                                            {link.title}
-                                        </Text>
-                                        <Text
-                                            style={{
-                                                color: "#525258",
-                                                fontSize: 16,
-                                                marginTop: 10,
-                                                textAlign: "justify",
-                                                fontFamily: "Nunito_500Medium"
-                                            }}
-                                        >
-                                            {link.url}
-                                        </Text>
-                                    </View>
-                                ))}
-                                <Text
-                                    style={{
-                                        color: "#525258", 
-                                        fontSize: 16,
-                                        marginTop: 10,
-                                        textAlign: "justify",
-                                        fontFamily: "Nunito_500Medium"
-                                    }}
-                                >
-                                    {courseContentData[activeVideo]?.description}
-                                </Text>
+                                
+                                <View style={styles.contentFrame}>
+                                    {courseContentData[activeVideo]?.links && courseContentData[activeVideo]?.links.length > 0 && (
+                                        <>
+                                            {courseContentData[activeVideo]?.links.map((link: LinkType, index: number) => (
+                                                <TouchableOpacity
+                                                    key={`indexavjkahfkahkas-${index}`}
+                                                    style={styles.linkItem}
+                                                    onPress={() => {
+                                                        // Open the URL in external browser
+                                                        if (link.url) {
+                                                            Linking.openURL(link.url).catch(err => 
+                                                                console.error("Couldn't open URL: ", err)
+                                                            );
+                                                        }
+                                                    }}
+                                                >
+                                                    <Text style={styles.linkTitle}>
+                                                        Tham khảo: {link.title}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            ))}
+                                        </>
+                                    )}
+                                    
+                                    <Text 
+                                        style={[
+                                            styles.description, 
+                                            courseContentData[activeVideo]?.links && 
+                                            courseContentData[activeVideo]?.links.length > 0 ? 
+                                            styles.descriptionWithBorder : null
+                                        ]}
+                                    >
+                                        {courseContentData[activeVideo]?.description}
+                                    </Text>
+                                </View>
                             </View>
-                        </View>
+                        </Animated.View>
                     )}
+                    
                     {activeButton === "Q&A" && (
-                        <View style={{ flex: 1 }}>
-                            <View>
+                        <Animated.View 
+                            style={[
+                                styles.contentContainer,
+                                { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }
+                            ]}
+                        >
+                            <View style={styles.inputContainer}>
                                 <TextInput
                                     value={question}
                                     onChangeText={(v) => setQuestion(v)}
-                                    placeholder="Đặt câu hỏi..."
-                                    style={{
-                                        marginVertical: 20,
-                                        flex: 1,
-                                        textAlignVertical: "top",
-                                        justifyContent: "flex-start",
-                                        backgroundColor: "#FFF",
-                                        borderRadius: 10,
-                                        height: 100,
-                                        padding: 10
-                                    }}
+                                    placeholder="Đặt câu hỏi của bạn tại đây..."
+                                    style={styles.input}
                                     multiline
                                 />
-                                <View
-                                    style={{ flexDirection: "row", justifyContent: "flex-end" }}
-                                >
+                                <View style={{ flexDirection: "row", justifyContent: "flex-end", marginTop: 15 }}>
                                     <TouchableOpacity
-                                        style={styles.button}
                                         disabled={question === ""}
                                         onPress={() => OnHandleQuestionSubmit()}
                                     >
-                                        <Text
-                                            style={{ color: "#FFF", fontSize: 16, fontWeight: "600" }}
+                                        <LinearGradient
+                                            colors={question === "" ? ['#a0a0a0', '#888888'] : ['#4776E6', '#5D87E4']}
+                                            start={{ x: 0, y: 0 }}
+                                            end={{ x: 1, y: 0 }}
+                                            style={styles.actionButton}
                                         >
-                                            Gửi câu hỏi
-                                        </Text>
+                                            <Text style={styles.textBtn}>Gửi câu hỏi</Text>
+                                            <Feather name="send" size={16} color="white" />
+                                        </LinearGradient>
                                     </TouchableOpacity>
                                 </View>
                             </View>
+                            
                             <View style={{ marginBottom: 20 }}>
                                 {courseContentData[activeVideo]?.questions
                                     ?.slice()
                                     ?.reverse()
                                     .map((item: CommentType, index: number) => (
-                                        <View key={`${index}-f`}>
+                                        <Animated.View 
+                                            key={`${index}-f`}
+                                            style={{ 
+                                                opacity: fadeAnim, 
+                                                transform: [{ translateY: slideAnim }],
+                                                marginBottom: 15 
+                                            }}
+                                        >
                                             <QuestionsCard
                                                 item={item}
                                                 fetchCourseContent={FetchCourseContent}
                                                 courseData={data}
                                                 contentId={courseContentData[activeVideo]?._id}
                                             />
-                                        </View>
+                                        </Animated.View>
                                     ))}
                             </View>
-                        </View>
+                        </Animated.View>
                     )}
+                    
                     {activeButton === "Reviews" && (
-                        <View style={{ marginHorizontal: 5, marginVertical: 25 }}>
+                        <Animated.View 
+                            style={[
+                                styles.contentContainer,
+                                { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }
+                            ]}
+                        >
                             {!reviewAvailable && (
-                                <View>
-                                    <View style={{ flexDirection: "row", alignItems: "center" }}>
+                                <View style={styles.inputContainer}>
+                                    <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 10 }}>
                                         <Text
                                             style={{
                                                 fontSize: 16,
-                                                paddingBottom: 10,
-                                                paddingLeft: 2,
-                                                paddingRight: 5
+                                                fontWeight: "600",
+                                                paddingRight: 10
                                             }}
                                         >
-                                            Đưa ra đánh giá:
+                                            Đánh giá:
                                         </Text>
-                                        {RenderStars()}
+                                        <View style={{flexDirection: 'row'}}>
+                                            {RenderStars()}
+                                        </View>
                                     </View>
                                     <TextInput
                                         value={review}
                                         onChangeText={(v) => setReview(v)}
-                                        placeholder="Đưa ra đánh giá..."
-                                        style={{
-                                            flex: 1,
-                                            textAlignVertical: "top",
-                                            justifyContent: "flex-start",
-                                            backgroundColor: "white",
-                                            borderRadius: 10,
-                                            height: 100,
-                                            padding: 10
-                                        }}
+                                        placeholder="Chia sẻ đánh giá của bạn về khóa học..."
+                                        style={styles.input}
                                         multiline
                                     />
-                                    <View style={{ flexDirection: "row", justifyContent: "flex-end" }}>
+                                    <View style={{ flexDirection: "row", justifyContent: "flex-end", marginTop: 15 }}>
                                         <TouchableOpacity
-                                            style={styles.button}
                                             disabled={review === ""}
                                             onPress={() => OnHandleReviewSubmit()}
                                         >
-                                            <Text
-                                                style={{
-                                                    color: "#FFF",
-                                                    fontSize: 16,
-                                                    fontWeight: "600"
-                                                }}
+                                            <LinearGradient
+                                                colors={review === "" ? ['#a0a0a0', '#888888'] : ['#E56767', '#D84848']}
+                                                start={{ x: 0, y: 0 }}
+                                                end={{ x: 1, y: 0 }}
+                                                style={styles.actionButton}
                                             >
-                                                Gửi Đánh giá
-                                            </Text>
+                                                <Text style={styles.textBtn}>Gửi đánh giá</Text>
+                                                <AntDesign name="star" size={16} color="white" />
+                                            </LinearGradient>
                                         </TouchableOpacity>
                                     </View>
                                 </View>
                             )}
-                            <View style={{ rowGap: 25 }}>
+                            
+                            <View style={{ rowGap: 15 }}>
                                 {courseReviews.map((item: ReviewType, index: number) => (
-                                    <View key={`${index}-efa`}>
+                                    <Animated.View 
+                                        key={`${index}-efa`}
+                                        style={{ 
+                                            opacity: fadeAnim, 
+                                            transform: [{ translateY: slideAnim }] 
+                                        }}
+                                    >
                                         <ReviewCard item={item} />
-                                    </View>
+                                    </Animated.View>
                                 ))}
                             </View>
-                        </View>
+                        </Animated.View>
                     )}
-                </ScrollView >
+                </ScrollView>
             )}
+            
+            <Modal
+                visible={isLessonListVisible}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setIsLessonListVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Danh sách bài học</Text>
+                            <TouchableOpacity onPress={() => setIsLessonListVisible(false)}>
+                                <AntDesign name="close" size={24} color="#333" />
+                            </TouchableOpacity>
+                        </View>
+                        
+                        <FlatList
+                            data={courseContentData}
+                            keyExtractor={(item, index) => `lesson-${index}`}
+                            renderItem={({ item, index }) => (
+                                <TouchableOpacity 
+                                    style={[
+                                        styles.lessonItem,
+                                        activeVideo === index && styles.activeLesson
+                                    ]}
+                                    onPress={() => handleLessonSelect(index)}
+                                >
+                                    <View style={styles.lessonNumber}>
+                                        <Text style={styles.lessonNumberText}>{index + 1}</Text>
+                                    </View>
+                                    <Text style={styles.lessonTitle} numberOfLines={2}>{item.title}</Text>
+                                    {isLessonCompleted(item._id) && (
+                                        <Feather name="check-circle" size={20} style={styles.completedIcon} />
+                                    )}
+                                </TouchableOpacity>
+                            )}
+                            showsVerticalScrollIndicator={false}
+                        />
+                    </View>
+                </View>
+            </Modal>
         </>
     )
 }

@@ -230,22 +230,22 @@ const CourseDetailsScreen = () => {
                             <View style={styles.priceContainer}>
                                 <View style={styles.priceWrapper}>
                                     <Text style={styles.currentPrice}>
-                                        {courseData?.price?.toLocaleString()}đ
-                                    </Text>
+                                            {courseData?.price?.toLocaleString()}đ
+                                        </Text>
                                     <Text style={styles.originalPrice}>
-                                        {courseData?.estimatedPrice?.toLocaleString()}đ
-                                    </Text>
+                                            {courseData?.estimatedPrice?.toLocaleString()}đ
+                                        </Text>
                                     {discountPercentage > 0 && (
                                         <View style={styles.discountBadge}>
                                             <Text style={styles.discountText}>-{discountPercentage}%</Text>
-                                        </View>
+                                    </View>
                                     )}
                                 </View>
                                 <View style={styles.studentContainer}>
                                     <Ionicons name="people" size={18} color="#666" />
                                     <Text style={styles.studentCount}>
                                         {courseData?.purchased} học viên
-                                    </Text>
+                                </Text>
                                 </View>
                             </View>
 
@@ -305,8 +305,8 @@ const CourseDetailsScreen = () => {
                                         <View style={styles.sectionTitleContainer}>
                                             <Ionicons name="information-circle" size={22} color="#0070e0" />
                                             <Text style={styles.sectionTitle}>
-                                                Thông tin khóa học
-                                            </Text>
+                                        Thông tin khóa học
+                                    </Text>
                                         </View>
                                         <View style={styles.infoCard}>
                                             <View style={styles.courseDuration}>
@@ -324,15 +324,15 @@ const CourseDetailsScreen = () => {
                                                 </Text>
                                             </View>
                                             <Text style={styles.descriptionText}>
-                                                {isExpanded
-                                                    ? courseData?.description
+                                        {isExpanded
+                                            ? courseData?.description
                                                     : courseData?.description?.slice(0, 302)}
-                                            </Text>
+                                    </Text>
                                             {courseData?.description?.length > 302 && (
-                                                <TouchableOpacity
+                                        <TouchableOpacity
                                                     style={styles.showMoreButton}
-                                                    onPress={() => setIsExpanded(!isExpanded)}
-                                                >
+                                            onPress={() => setIsExpanded(!isExpanded)}
+                                        >
                                                     <Text style={styles.showMoreText}>
                                                         {isExpanded ? "Thu gọn" : "Xem thêm"}
                                                     </Text>
@@ -500,8 +500,8 @@ const CourseDetailsScreen = () => {
                                                     <Text style={styles.seeAllButtonText}>Thu gọn</Text>
                                                     <Ionicons name="chevron-up" size={18} color="#0070e0" />
                                                 </TouchableOpacity>
-                                            )}
-                                        </View>
+                                        )}
+                                    </View>
                                     ) : (
                                         <View style={styles.emptyReviews}>
                                             <MaterialIcons name="rate-review" size={60} color="#eee" />
