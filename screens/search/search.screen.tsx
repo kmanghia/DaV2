@@ -459,6 +459,10 @@ const SearchScreen = () => {
         return progress ? progress.progress : 0;
     };
 
+    const isPurchased = (courseId: string) => {
+        return userProgresses.some((pro: any) => pro.courseId === courseId);
+    };
+
     const getProgressColor = (progress: number) => {
         return progress < 0.5 ? '#1c86b7' : '#237867';
     };
@@ -711,7 +715,7 @@ const SearchScreen = () => {
                 {filteredCourses.length > 0 ? (
                     filteredCourses.map((item: any, index: number) => {
                         const progress = getProgressForCourse(item._id);
-                        const showProgress = progress > 0;
+                        const hasPurchased = isPurchased(item._id);
                         
                         return (
                             <TouchableOpacity 
@@ -779,7 +783,7 @@ const SearchScreen = () => {
                                             <Ionicons name="list-outline" size={14} color="#666" />
                                             <Text style={styles.lessonText}>{item.courseData.length} bài học</Text>
                                         </View>
-                                        {showProgress ? (
+                                        {hasPurchased ? (
                                             <View style={styles.progressBarContainer}>
                                                 <Progress.Bar 
                                                     progress={progress}
