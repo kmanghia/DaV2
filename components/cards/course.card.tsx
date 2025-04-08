@@ -403,7 +403,7 @@ const styles = StyleSheet.create({
     
     // Horizontal styles
     horizontalContainer: {
-        width: 280,
+        width: "100%",
         backgroundColor: "#FFFF",
         borderRadius: 12,
         overflow: "hidden",
@@ -416,9 +416,10 @@ const styles = StyleSheet.create({
     },
     horizontalImage: {
         width: "100%",
-        height: 150,
+        height: 180,
         borderTopLeftRadius: 12,
         borderTopRightRadius: 12,
+        objectFit: "cover",
     },
     horizontalContentContainer: {
         padding: 12,

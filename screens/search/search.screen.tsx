@@ -1,65 +1,516 @@
-import CourseCard from "@/components/cards/course.card";
-import { URL_SERVER } from "@/utils/url";
+import React from "react";
+import { URL_SERVER, URL_IMAGES } from "@/utils/url";
 import { Nunito_700Bold } from "@expo-google-fonts/nunito";
-import { AntDesign, Zocial } from "@expo/vector-icons";
+import { AntDesign, Ionicons, FontAwesome, FontAwesome5 } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { useFonts } from "expo-font";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native"
+import { useCallback, useEffect, useState, useRef } from "react";
+import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Image, Animated, Modal } from "react-native"
 import { 
-    widthPercentageToDP as wp
+    widthPercentageToDP as wp,
+    heightPercentageToDP as hp
 } from "react-native-responsive-screen";
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Progress from "react-native-progress";
+import { useDispatch, useSelector } from "react-redux";
+import * as userActions from "../../utils/store/actions/index";
+import Slider from '@react-native-community/slider';
+import MultiSlider from '@ptomasroos/react-native-multi-slider';
 
 const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: "#F8F9FE",
+        paddingTop: 15,
+    },
+    header: {
+        paddingHorizontal: 16,
+        marginBottom: 20,
+    },
+    headerTitle: {
+        fontSize: 24,
+        fontWeight: "bold",
+        color: "#1A1A2E",
+        marginBottom: 15,
+        fontFamily: "Nunito_700Bold",
+    },
     filteringContainer: {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
         marginHorizontal: 16,
+        marginBottom: 20,
     },
-
     searchContainer: {
         flex: 1,
         flexDirection: "row",
         alignItems: "center",
         backgroundColor: "white",
-        borderRadius: 5,
-        paddingHorizontal: 10,
-        marginHorizontal: "auto"
+        borderRadius: 12,
+        paddingHorizontal: 15,
+        height: 50,
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.05,
+        shadowRadius: 3,
+        elevation: 3,
+        marginRight: 8,
     },
-
     searchIconContainer: {
-        width: 36,
-        height: 36,
-        backgroundColor: "#2467EC",
+        width: 45,
+        height: 45,
         justifyContent: "center",
         alignItems: "center",
-        borderRadius: 4,
+        borderRadius: 12,
     },
-
     input: {
         flex: 1,
+        fontSize: 16,
+        color: "#333",
+        paddingVertical: 12,
+        fontFamily: "Nunito_700Bold",
+    },
+    coursesContainer: {
+        paddingHorizontal: 16,
+    },
+    courseItem: {
+        backgroundColor: "white",
+        borderRadius: 12,
+        marginBottom: 12,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
+        overflow: "hidden",
+    },
+    courseContent: {
+        flexDirection: "row",
+        width: "100%",
+    },
+    courseImageContainer: {
+        width: "40%",
+        position: "relative",
+        height: 140,
+    },
+    courseImage: {
+        width: "100%",
+        height: "100%",
+        objectFit: "cover",
+    },
+    courseInfo: {
+        flex: 1,
+        padding: 12,
+        justifyContent: "space-between",
+        height: 140,
+    },
+    courseTitle: {
+        fontSize: 16,
+        fontFamily: "Nunito_700Bold",
+        color: "#1A1A2E",
+        marginBottom: 8,
+    },
+    courseMeta: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        marginBottom: 8,
+        width: "100%",
+    },
+    ratingContainer: {
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: "#FFB800",
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 4,
+    },
+    ratingText: {
+        color: "white",
+        fontSize: 12,
+        marginLeft: 4,
+        fontFamily: "Nunito_700Bold",
+    },
+    studentsText: {
+        fontSize: 12,
+        color: "#666",
+    },
+    lessonInfo: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginBottom: 8,
+    },
+    lessonText: {
+        fontSize: 12,
+        color: "#666",
+        marginLeft: 4,
+    },
+    priceContainer: {
+        flexDirection: "row",
+        alignItems: "center",
+    },
+    price: {
+        fontSize: 16,
+        color: "#2467EC",
+        fontFamily: "Nunito_700Bold",
+    },
+    originalPrice: {
+        fontSize: 12,
+        color: "#999",
+        textDecorationLine: "line-through",
+        marginLeft: 8,
+    },
+    noResults: {
+        flex: 1,
+        alignItems: "center",
+        justifyContent: "center",
+        paddingTop: 40,
+        paddingHorizontal: 20,
+    },
+    noResultsImage: {
+        width: 120,
+        height: 120,
+        marginBottom: 20,
+        tintColor: "#DADADA",
+    },
+    noResultsText: {
+        fontSize: 18,
+        color: "#666",
+        textAlign: "center",
+        fontFamily: "Nunito_700Bold",
+        marginBottom: 10,
+    },
+    progressContainer: {
+        position: "absolute",
+        right: 12,
+        top: 12,
+        width: 40,
+        height: 40,
+        backgroundColor: "white",
+        borderRadius: 20,
+        justifyContent: "center",
+        alignItems: "center",
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    progressText: {
+        position: "absolute",
+        fontSize: 10,
+        fontFamily: "Nunito_700Bold",
+    },
+    progressBarContainer: {
+        marginTop: 8,
+    },
+    progressBarText: {
+        fontSize: 12,
+        marginTop: 4,
+        fontFamily: "Nunito_700Bold",
+    },
+    wishBtnContainer: {
+        position: 'absolute',
+        top: 8,
+        right: 8,
+        zIndex: 10,
+    },
+    wishBtn: {
+        borderRadius: 20,
+        width: 30,
+        height: 30,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.15,
+        shadowRadius: 2,
+        elevation: 2,
+    },
+    heartIcon: {
+        fontSize: 16
+    },
+    filterButton: {
+        width: 45,
+        height: 45,
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "white",
+        borderRadius: 12,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+        elevation: 3,
+    },
+    modalContainer: {
+        flex: 1,
+        backgroundColor: "rgba(0, 0, 0, 0.5)",
+        justifyContent: "flex-end",
+    },
+    modalContent: {
+        backgroundColor: "white",
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        padding: 20,
+        height: hp(50),
+    },
+    modalHeader: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 15,
+        paddingHorizontal: 10,
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: "bold",
+        color: "#1A1A2E",
+        fontFamily: "Nunito_700Bold",
+    },
+    filterContent: {
+        flex: 1,
+        paddingHorizontal: 10,
+    },
+    filterSection: {
+        marginBottom: 20,
+    },
+    filterTitle: {
+        fontSize: 16,
+        fontWeight: "bold",
+        color: "#1A1A2E",
+        marginBottom: 15,
+        fontFamily: "Nunito_700Bold",
+    },
+    categoryContainer: {
+        flexDirection: "row",
+    },
+    categoryItem: {
+        paddingHorizontal: 15,
+        paddingVertical: 8,
+        borderRadius: 20,
+        backgroundColor: "#F0F0F0",
+        marginRight: 10,
+    },
+    selectedCategory: {
+        backgroundColor: "#4776E6",
+    },
+    categoryText: {
+        color: "#666",
+        fontFamily: "Nunito_700Bold",
+    },
+    selectedCategoryText: {
+        color: "white",
+    },
+    priceRangeContainer: {
+        paddingHorizontal: 10,
+        marginVertical: 10,
+    },
+    priceText: {
+        textAlign: "center",
+        marginBottom: 10,
+        color: "#666",
+        fontFamily: "Nunito_700Bold",
+    },
+    priceLabels: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        marginBottom: 5,
+    },
+    slider: {
+        width: "100%",
+        height: 40,
+    },
+    starsContainer: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginTop: 15,
+        width: "100%",
+    },
+    starButton: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "#F0F0F0",
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 20,
+        width: wp(15),
+        marginHorizontal: 5,
+    },
+    starButtonActive: {
+        backgroundColor: "#4776E6",
+    },
+    starText: {
+        marginLeft: 4,
+        color: "#666",
+        fontFamily: "Nunito_700Bold",
+        fontSize: 13,
+    },
+    starTextActive: {
+        color: "white",
+    },
+    studentsContainer: {
+        flexDirection: "row",
+        alignItems: "center",
+    },
+    studentsInput: {
+        flex: 1,
+        height: 40,
+        borderWidth: 1,
+        borderColor: "#ddd",
+        borderRadius: 8,
+        paddingHorizontal: 10,
+        fontFamily: "Nunito_700Bold",
+    },
+    modalFooter: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        paddingHorizontal: 10,
+        paddingVertical: 15,
+        borderTopWidth: 1,
+        borderTopColor: "#eee",
+    },
+    resetButton: {
+        flex: 1,
+        height: 45,
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "#F0F0F0",
+        borderRadius: 8,
+        marginRight: 10,
+    },
+    resetButtonText: {
+        color: "#666",
+        fontFamily: "Nunito_700Bold",
+        fontSize: 16,
+    },
+    applyButton: {
+        flex: 1,
+        height: 45,
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "#4776E6",
+        borderRadius: 8,
+    },
+    applyButtonText: {
+        color: "white",
+        fontFamily: "Nunito_700Bold",
+        fontSize: 16,
+    },
+    priceInputContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginTop: 10,
+    },
+    priceInput: {
+        width: wp(35),
+        height: 45,
+        borderWidth: 1,
+        borderColor: '#ddd',
+        borderRadius: 8,
+        paddingHorizontal: 12,
         fontSize: 14,
-        color: "black",
-        paddingVertical: 10,
-        width: 271,
-        height: 48,
+        fontFamily: "Nunito_700Bold",
+        backgroundColor: 'white',
+    },
+    priceDash: {
+        fontSize: 16,
+        color: '#666',
+        marginHorizontal: 10,
     },
 });
 
 const SearchScreen = () => {
-
     const [value, setValue] = useState("");
     const [courses, setCourses] = useState([]);
     const [filteredCourses, setFilteredCourses] = useState([]);
     const [progresses, setProgresses] = useState<Progress[]>([]);
+    const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
+    const [categories, setCategories] = useState([]);
+    const [selectedCategory, setSelectedCategory] = useState("");
+    const [priceRange, setPriceRange] = useState([0, 1000000]);
+    const [ratingFilter, setRatingFilter] = useState(0);
+    const [studentsFilter, setStudentsFilter] = useState(0);
+    const [priceMinMax, setPriceMinMax] = useState<[number, number]>([0, 1000000]);
+
+    const userProgresses = useSelector((state: any) => state.user.progress);
+    const wishList = useSelector((state: any) => state.user.wishList);
+    const dispatch = useDispatch();
+
+    const [wishStates, setWishStates] = useState<{[key: string]: boolean}>({});
+    const [wishIds, setWishIds] = useState<{[key: string]: string}>({});
+    const [activeAnimationId, setActiveAnimationId] = useState<string | null>(null);
+    const scaleAnim = useRef(new Animated.Value(1)).current;
+
+    const getProgressForCourse = (courseId: string) => {
+        const progress = userProgresses.find((pro: any) => pro.courseId === courseId);
+        return progress ? progress.progress : 0;
+    };
+
+    const getProgressColor = (progress: number) => {
+        return progress < 0.5 ? '#1c86b7' : '#237867';
+    };
+
+    const loadCategories = async () => {
+        try {
+            const response = await axios.get(`${URL_SERVER}/categories`);
+            setCategories(response.data.categories);
+        } catch (error) {
+            console.log(error);
+        }
+    };
+
+    const applyFilters = () => {
+        let filtered = courses;
+
+        // Apply text search
+        if (value) {
+            filtered = filtered.filter((course: any) => 
+                course.name.toLowerCase().includes(value.toLowerCase())
+            );
+        }
+
+        // Apply price range filter if either min or max price is set
+        if (priceRange[0] > 0 || priceRange[1] < 1000000) {
+            filtered = filtered.filter((course: any) => 
+                course.price >= priceRange[0] && course.price <= priceRange[1]
+            );
+        }
+
+        // Apply rating filter
+        if (ratingFilter > 0) {
+            filtered = filtered.filter((course: any) => 
+                course.ratings >= ratingFilter
+            );
+        }
+
+        setFilteredCourses(filtered);
+        setShowAdvancedSearch(false);
+    };
+
+    const resetFilters = () => {
+        setPriceRange([0, 1000000]);
+        setRatingFilter(0);
+        setFilteredCourses(courses);
+    };
 
     useFocusEffect(
         useCallback(() => {
             loadAllCourses();
             loadProgressOfUser();
+            loadCategories();
         }, [])
     );
 
@@ -71,6 +522,98 @@ const SearchScreen = () => {
             setFilteredCourses(filtered);
         }
     }, [value, courses])
+
+    useEffect(() => {
+        const newWishStates: {[key: string]: boolean} = {};
+        const newWishIds: {[key: string]: string} = {};
+        courses.forEach((course: any) => {
+            const isWished = wishList.find((item: any) => item.courseId === course._id);
+            if (isWished) {
+                newWishStates[course._id] = true;
+                newWishIds[course._id] = isWished._id;
+            } else {
+                newWishStates[course._id] = false;
+                newWishIds[course._id] = '';
+            }
+        });
+        setWishStates(newWishStates);
+        setWishIds(newWishIds);
+    }, [wishList, courses]);
+
+    useEffect(() => {
+        // Find min and max prices in courses to set slider range
+        if (courses.length > 0) {
+            const prices = courses.map((course: any) => course.price);
+            const minPrice = Math.min(...prices);
+            const maxPrice = Math.max(...prices);
+            setPriceMinMax([minPrice, maxPrice]);
+            setPriceRange([minPrice, maxPrice]);
+        }
+    }, [courses]);
+
+    const animateHeart = (courseId: string) => {
+        setActiveAnimationId(courseId);
+        Animated.sequence([
+            Animated.timing(scaleAnim, {
+                toValue: 1.3,
+                duration: 150,
+                useNativeDriver: true
+            }),
+            Animated.timing(scaleAnim, {
+                toValue: 1,
+                duration: 150,
+                useNativeDriver: true
+            })
+        ]).start(() => {
+            setActiveAnimationId(null);
+        });
+    };
+
+    const onAddToWishList = async (courseId: string) => {
+        try {
+            animateHeart(courseId);
+            
+            const accessToken = await AsyncStorage.getItem('access_token');
+            const refreshToken = await AsyncStorage.getItem('refresh_token');
+            const response = await axios.post(`${URL_SERVER}/wishlist`, {
+                courseId: courseId
+            }, {
+                headers: {
+                    'access-token': accessToken,
+                    'refresh-token': refreshToken
+                }
+            });
+            const data = {
+                _id: response.data.data._id,
+                userId: response.data.userId,
+                courseId: courseId
+            }
+            dispatch(userActions.pushWishCourse(data));
+        } catch (error) {
+            console.log(error);
+        }
+    }
+
+    const onRemoveFromWishList = async (courseId: string) => {
+        try {
+            animateHeart(courseId);
+            
+            const accessToken = await AsyncStorage.getItem('access_token');
+            const refreshToken = await AsyncStorage.getItem('refresh_token');
+            await axios.delete(`${URL_SERVER}/wishlist?id=${wishIds[courseId]}`, {
+                headers: {
+                    'access-token': accessToken,
+                    'refresh-token': refreshToken
+                }
+            });
+            const data = {
+                _id: wishIds[courseId],
+            }
+            dispatch(userActions.removeWishCourse(data));
+        } catch (error) {
+            console.log(error);
+        }
+    }
 
     const loadAllCourses = async () => {
         try {
@@ -109,6 +652,22 @@ const SearchScreen = () => {
         }
     }
 
+    const formatPrice = (price: string) => {
+        // Remove non-numeric characters
+        const numericValue = price.replace(/[^0-9]/g, '');
+        // Format with thousand separators
+        return numericValue.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    };
+
+    const handlePriceChange = (value: string, isMin: boolean) => {
+        const numericValue = parseInt(value.replace(/[^0-9]/g, '')) || 0;
+        if (isMin) {
+            setPriceRange([numericValue, priceRange[1]]);
+        } else {
+            setPriceRange([priceRange[0], numericValue]);
+        }
+    };
+
     let [fontsLoaded, fontError] = useFonts({
         Nunito_700Bold,
     });
@@ -118,38 +677,232 @@ const SearchScreen = () => {
     }
 
     return (
-        <ScrollView style={{ flex: 1, marginTop: 10 }} showsVerticalScrollIndicator={false}>
+        <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+            <View style={styles.header}>
+                <Text style={styles.headerTitle}>Tìm kiếm khóa học</Text>
+            </View>
+            
             <View style={styles.filteringContainer}>
                 <View style={styles.searchContainer}>
+                    <Ionicons name="search-outline" size={20} color="#999" />
                     <TextInput
-                        style={[styles.input, { fontFamily: 'Nunito_700Bold' }]}
-                        placeholder="Search"
+                        style={styles.input}
+                        placeholder="Tìm kiếm khóa học..."
                         onChangeText={(v) => setValue(v)}
-                        placeholderTextColor={"#C67CCC"}
+                        value={value}
+                        placeholderTextColor={"#999"}
                     />
-                    <TouchableOpacity
-                        style={styles.searchIconContainer}
-                        onPress={() => router.push("/(tabs)/search")}
-                    >
-                        <AntDesign name="search1" size={20} color={"#fff"} />
-                    </TouchableOpacity>
+                    {value !== "" && (
+                        <TouchableOpacity onPress={() => setValue("")}>
+                            <Ionicons name="close-circle" size={20} color="#999" />
+                        </TouchableOpacity>
+                    )}
                 </View>
+                
+                <TouchableOpacity
+                    onPress={() => setShowAdvancedSearch(true)}
+                    style={styles.filterButton}
+                >
+                    <Ionicons name="options-outline" size={24} color="#4776E6" />
+                </TouchableOpacity>
             </View>
-            <View>
-                {filteredCourses.length > 0 && filteredCourses.map((item: any, index: number) => (
-                    <View key={`${index}-c`} style={{width: wp(90), marginHorizontal: 'auto'}}>
-                        <CourseCard item={item} />
+            
+            <View style={styles.coursesContainer}>
+                {filteredCourses.length > 0 ? (
+                    filteredCourses.map((item: any, index: number) => {
+                        const progress = getProgressForCourse(item._id);
+                        const showProgress = progress > 0;
+                        
+                        return (
+                            <TouchableOpacity 
+                                key={`${index}-c`} 
+                                style={styles.courseItem}
+                                onPress={() => router.push({
+                                    pathname: "/(routes)/course-details",
+                                    params: { item: JSON.stringify(item), courseId: item?._id },
+                                })}
+                            >
+                                <View style={styles.courseContent}>
+                                    <View style={styles.courseImageContainer}>
+                                        <Image
+                                            style={styles.courseImage}
+                                            source={{ uri: item.thumbnail.url ? `${URL_IMAGES}/${item.thumbnail.url}` : `${URL_IMAGES}/${item.thumbnail}`}}
+                                        />
+                                        <View style={styles.wishBtnContainer}>
+                                            {!wishStates[item._id] ? (
+                                                <TouchableOpacity
+                                                    onPress={() => onAddToWishList(item._id)}
+                                                    style={styles.wishBtn}
+                                                    activeOpacity={0.7}
+                                                >
+                                                    <Animated.View 
+                                                        style={{ 
+                                                            transform: [{ 
+                                                                scale: activeAnimationId === item._id ? scaleAnim : 1 
+                                                            }] 
+                                                        }}
+                                                    >
+                                                        <AntDesign name="hearto" size={15} color="#FF385C" style={styles.heartIcon} />
+                                                    </Animated.View>
+                                                </TouchableOpacity>
+                                            ) : (
+                                                <TouchableOpacity
+                                                    onPress={() => onRemoveFromWishList(item._id)}
+                                                    style={styles.wishBtn}
+                                                    activeOpacity={0.7}
+                                                >
+                                                    <Animated.View 
+                                                        style={{ 
+                                                            transform: [{ 
+                                                                scale: activeAnimationId === item._id ? scaleAnim : 1 
+                                                            }] 
+                                                        }}
+                                                    >
+                                                        <AntDesign name="heart" size={15} color="#FF385C" style={styles.heartIcon} />
+                                                    </Animated.View>
+                                                </TouchableOpacity>
+                                            )}
+                                        </View>
+                                    </View>
+                                    <View style={styles.courseInfo}>
+                                        <Text style={styles.courseTitle} numberOfLines={2}>{item.name}</Text>
+                                        <View style={styles.courseMeta}>
+                                            <View style={styles.ratingContainer}>
+                                                <FontAwesome name="star" size={12} color="white" />
+                                                <Text style={styles.ratingText}>{item?.ratings?.toFixed(1)}</Text>
+                                            </View>
+                                            <Text style={styles.studentsText}>
+                                                {item.purchased} <FontAwesome5 name="user" size={12} color="#666" />
+                                            </Text>
+                                        </View>
+                                        <View style={styles.lessonInfo}>
+                                            <Ionicons name="list-outline" size={14} color="#666" />
+                                            <Text style={styles.lessonText}>{item.courseData.length} bài học</Text>
+                                        </View>
+                                        {showProgress ? (
+                                            <View style={styles.progressBarContainer}>
+                                                <Progress.Bar 
+                                                    progress={progress}
+                                                    width={null}
+                                                    height={4}
+                                                    color={getProgressColor(progress)}
+                                                />
+                                                <Text style={[styles.progressBarText, { color: getProgressColor(progress) }]}>
+                                                    {Math.round(progress * 100)}%
+                                                </Text>
+                                            </View>
+                                        ) : (
+                                            <View style={styles.priceContainer}>
+                                                <Text style={styles.price}>{item?.price.toLocaleString()}đ</Text>
+                                                <Text style={styles.originalPrice}>{item?.estimatedPrice?.toLocaleString()}đ</Text>
+                                            </View>
+                                        )}
+                                    </View>
+                                </View>
+                            </TouchableOpacity>
+                        );
+                    })
+                ) : (
+                    <View style={styles.noResults}>
+                        <Image 
+                            source={{ uri: 'https://cdn-icons-png.flaticon.com/512/7486/7486754.png' }}
+                            style={styles.noResultsImage}
+                        />
+                        <Text style={styles.noResultsText}>
+                            Không tìm thấy khóa học phù hợp
+                        </Text>
                     </View>
-                ))}
+                )}
             </View>
-            {filteredCourses.length === 0 && (
-                <View style={{ flex: 1, marginHorizontal: 18, marginTop: 20 }}>
-                    <View style={{ width: "100%" }}>
-                        <Zocial name="cloudapp" size={60} style={{ textAlign: "center" }} color="#ccc" />
+
+            <Modal
+                visible={showAdvancedSearch}
+                animationType="slide"
+                transparent={true}
+                onRequestClose={() => setShowAdvancedSearch(false)}
+            >
+                <View style={styles.modalContainer}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Tìm kiếm nâng cao</Text>
+                            <TouchableOpacity 
+                                onPress={() => setShowAdvancedSearch(false)}
+                                hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
+                            >
+                                <Ionicons name="close" size={24} color="#666" />
+                            </TouchableOpacity>
+                        </View>
+
+                        <ScrollView style={styles.filterContent} showsVerticalScrollIndicator={false}>
+                            <View style={styles.filterSection}>
+                                <Text style={styles.filterTitle}>Khoảng giá</Text>
+                                <View style={styles.priceInputContainer}>
+                                    <TextInput
+                                        style={styles.priceInput}
+                                        keyboardType="numeric"
+                                        value={priceRange[0].toLocaleString()}
+                                        onChangeText={(value) => handlePriceChange(value, true)}
+                                        placeholder="Giá thấp nhất"
+                                        placeholderTextColor="#999"
+                                    />
+                                    <Text style={styles.priceDash}>-</Text>
+                                    <TextInput
+                                        style={styles.priceInput}
+                                        keyboardType="numeric"
+                                        value={priceRange[1].toLocaleString()}
+                                        onChangeText={(value) => handlePriceChange(value, false)}
+                                        placeholder="Giá cao nhất"
+                                        placeholderTextColor="#999"
+                                    />
+                                </View>
+                            </View>
+
+                            <View style={styles.filterSection}>
+                                <Text style={styles.filterTitle}>Đánh giá từ</Text>
+                                <View style={styles.starsContainer}>
+                                    {[1, 2, 3, 4, 5].map((star) => (
+                                        <TouchableOpacity
+                                            key={star}
+                                            style={[
+                                                styles.starButton,
+                                                ratingFilter === star && styles.starButtonActive
+                                            ]}
+                                            onPress={() => {
+                                                setRatingFilter(star === ratingFilter ? 0 : star);
+                                            }}
+                                        >
+                                            <AntDesign
+                                                name="star"
+                                                size={16}
+                                                color={ratingFilter === star ? "white" : "#FFB800"}
+                                            />
+                                            <Text style={[
+                                                styles.starText,
+                                                ratingFilter === star && styles.starTextActive
+                                            ]}>{star}+</Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            </View>
+                        </ScrollView>
+
+                        <View style={styles.modalFooter}>
+                            <TouchableOpacity
+                                style={styles.resetButton}
+                                onPress={resetFilters}
+                            >
+                                <Text style={styles.resetButtonText}>Đặt lại</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={styles.applyButton}
+                                onPress={applyFilters}
+                            >
+                                <Text style={styles.applyButtonText}>Áp dụng</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
-                    <Text style={{ textAlign: 'center' }}>Không tồn tại dữ liệu</Text>
                 </View>
-            )}
+            </Modal>
         </ScrollView>
     )
 }
