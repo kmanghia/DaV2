@@ -105,7 +105,7 @@ const WishListScreen = () => {
                     <ScrollView style={{marginTop: 10, flex: 1, marginHorizontal: 'auto', position: 'relative', zIndex: 99}} showsVerticalScrollIndicator={false}>
                         { filteredCourses.length > 0 && (
                             filteredCourses.map(course => (
-                                <View style={{width: wp(90)}} key={course._id}>
+                                <View style={{width: wp(90), marginTop: 10}} key={course._id}>
                                     <CourseCard item={course} isHorizontal={true}/>
                                 </View>
                             ))
