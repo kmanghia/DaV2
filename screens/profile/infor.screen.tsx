@@ -4,7 +4,7 @@ import { Raleway_600SemiBold, Raleway_700Bold } from "@expo-google-fonts/raleway
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFonts } from "expo-font";
 import { useEffect, useState } from "react";
-import { Image, ScrollView, Text, TextInput, TouchableOpacity, View, StyleSheet, Dimensions } from "react-native"
+import { Image, ScrollView, Text, TextInput, TouchableOpacity, View, StyleSheet, Dimensions, Alert } from "react-native"
 import axios from "axios";
 import { URL_IMAGES, URL_SERVER, URL_VIDEO } from "@/utils/url";
 import Loader from "@/components/loader";
@@ -14,6 +14,8 @@ import { useDispatch, useSelector } from "react-redux";
 import React from "react";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
+import { userActions } from "@/redux/actions/userActions";
+import * as userStoreActions from "@/utils/store/actions/user.actions";
 
 const { width } = Dimensions.get('window');
 
@@ -26,6 +28,8 @@ const InforScreen = () => {
         name: '',
         email: ''
     });
+    const [editMode, setEditMode] = useState(false);
+    const [newName, setNewName] = useState('');
     let [fontsLoaded, fontsError] = useFonts({
         Raleway_600SemiBold,
         Raleway_700Bold,
@@ -60,10 +64,56 @@ const InforScreen = () => {
                         name: response.data.user.name,
                         email: response.data.user.email
                     });
+                    setNewName(response.data.user.name);
                 }
             } catch (error) {
                 console.log(error);
                 setLoader(false);
+        }
+    }
+
+    const updateUserInfo = async () => {
+        if (newName.trim() === '') {
+            Alert.alert('Lỗi', 'Tên không được để trống');
+            return;
+        }
+
+        setLoader(true);
+        const accessToken = await AsyncStorage.getItem("access_token");
+        const refreshToken = await AsyncStorage.getItem("refresh_token");
+
+        try {
+            const response = await axios.put(
+                `${URL_SERVER}/update-user-info`,
+                { name: newName.trim() },
+                {
+                    headers: {
+                        "access-token": accessToken,
+                        "refresh-token": refreshToken
+                    }
+                }
+            );
+            
+            if (response.data) {
+                setUserData(prev => ({
+                    ...prev,
+                    name: newName
+                }));
+                
+                // Cập nhật thông tin trong Redux store
+                dispatch(userStoreActions.saveUserInfo({
+                    ...user.userInfo,
+                    name: newName
+                }));
+                
+                setEditMode(false);
+                Alert.alert('Thành công', 'Đã cập nhật thông tin thành công');
+            }
+        } catch (error) {
+            console.log(error);
+            Alert.alert('Lỗi', 'Không thể cập nhật thông tin. Vui lòng thử lại sau.');
+        } finally {
+            setLoader(false);
         }
     }
 
@@ -113,7 +163,26 @@ const InforScreen = () => {
                         
                         {/* Information Card */}
                         <View style={styles.infoCard}>
-                            <Text style={styles.sectionTitle}>Chi tiết tài khoản</Text>
+                            <View style={styles.sectionHeader}>
+                                <Text style={styles.sectionTitle}>Chi tiết tài khoản</Text>
+                                {!editMode ? (
+                                    <TouchableOpacity 
+                                        style={styles.editButton}
+                                        onPress={() => setEditMode(true)}
+                                    >
+                                        <Feather name="edit-2" size={16} color="#2467EC" />
+                                        <Text style={styles.editButtonText}>Chỉnh sửa</Text>
+                                    </TouchableOpacity>
+                                ) : (
+                                    <TouchableOpacity 
+                                        style={styles.saveButton}
+                                        onPress={updateUserInfo}
+                                    >
+                                        <Feather name="check" size={16} color="#2467EC" />
+                                        <Text style={styles.saveButtonText}>Lưu</Text>
+                                    </TouchableOpacity>
+                                )}
+                            </View>
                             
                             {/* Name Field */}
                             <View style={styles.fieldContainer}>
@@ -123,9 +192,13 @@ const InforScreen = () => {
                                 <View style={styles.fieldContent}>
                                     <Text style={styles.fieldLabel}>Họ và tên</Text>
                                     <TextInput
-                                        value={userData.name}
-                                        editable={false}
-                                        style={styles.fieldInput}
+                                        value={editMode ? newName : userData.name}
+                                        editable={editMode}
+                                        onChangeText={setNewName}
+                                        style={[
+                                            styles.fieldInput,
+                                            editMode && styles.fieldInputEditable
+                                        ]}
                                         placeholder="Tên người dùng"
                                     />
                                 </View>
@@ -363,6 +436,44 @@ const styles = StyleSheet.create({
         fontFamily: 'Nunito_400Regular',
         color: '#FFFFFF',
         opacity: 0.9,
+    },
+    sectionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    editButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#EDF4FF',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+    },
+    editButtonText: {
+        fontSize: 14,
+        fontFamily: 'Nunito_600SemiBold',
+        color: '#2467EC',
+        marginLeft: 5,
+    },
+    saveButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#EDF4FF',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+    },
+    saveButtonText: {
+        fontSize: 14,
+        fontFamily: 'Nunito_600SemiBold',
+        color: '#2467EC',
+        marginLeft: 5,
+    },
+    fieldInputEditable: {
+        backgroundColor: '#FFFFFF',
+        borderColor: '#2467EC',
     },
 });
 
