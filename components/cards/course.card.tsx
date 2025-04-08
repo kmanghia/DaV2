@@ -146,7 +146,7 @@ export default function CourseCard({ item, isHorizontal = false }: CourseCardPro
                     })
                 }
             >
-                <View style={{ position: 'relative' }}>
+                <View style={styles.horizontalImageContainer}>
                     <Image
                         style={styles.horizontalImage}
                         source={{ uri: item.thumbnail.url ? `${URL_IMAGES}/${item.thumbnail.url}` : `${URL_IMAGES}/${item.thumbnail}`}}
@@ -177,9 +177,11 @@ export default function CourseCard({ item, isHorizontal = false }: CourseCardPro
                 </View>
                 
                 <View style={styles.horizontalContentContainer}>
-                    <Text numberOfLines={2} style={styles.horizontalTitle}>{item.name}</Text>
+                    <View style={styles.titleContainer}>
+                        <Text numberOfLines={2} style={styles.horizontalTitle}>{item.name}</Text>
+                    </View>
                     
-                    <View style={styles.horizontalInfoContainer}>
+                    <View style={styles.metaContainer}>
                         <View style={styles.ratingBadge}>
                             <FontAwesome name="star" size={12} color={"#ffb800"} />
                             <Text style={styles.smallRatingText}>{item?.ratings?.toFixed(1)}</Text>
@@ -200,7 +202,7 @@ export default function CourseCard({ item, isHorizontal = false }: CourseCardPro
                         <View style={styles.progressContainer}>
                             <Progress.Bar 
                                 progress={progressFill}
-                                width={240}
+                                width={null}
                                 height={4}
                                 color={getProgressColor()}
                             />
@@ -405,76 +407,48 @@ const styles = StyleSheet.create({
     horizontalContainer: {
         width: "100%",
         backgroundColor: "#FFFF",
-        borderRadius: 12,
+        borderRadius: 10,
         overflow: "hidden",
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
         shadowRadius: 4,
         elevation: 2,
-        marginBottom: 8,
+        marginBottom: 6,
+    },
+    horizontalImageContainer: {
+        position: 'relative',
+        width: '100%',
+        aspectRatio: 16/9,
+        backgroundColor: '#f5f5f5',
     },
     horizontalImage: {
-        width: "100%",
-        height: 180,
-        borderTopLeftRadius: 12,
-        borderTopRightRadius: 12,
-        objectFit: "cover",
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        borderTopLeftRadius: 10,
+        borderTopRightRadius: 10,
     },
     horizontalContentContainer: {
         padding: 12,
     },
+    titleContainer: {
+        marginBottom: 8,
+        minHeight: 36,
+    },
     horizontalTitle: {
-        fontSize: 14,
+        fontSize: 13,
         fontFamily: "Raleway_600SemiBold",
-        marginBottom: 8,
-        height: 46,
         lineHeight: 18,
-        overflow: "hidden",
-    },
-    horizontalInfoContainer: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        marginBottom: 8,
-        alignItems: "center",
-    },
-    horizontalStudents: {
-        fontSize: 12,
-        color: "#666",
-    },
-    horizontalLessons: {
-        fontSize: 12,
-        color: "#666",
-    },
-    horizontalPriceContainer: {
-        flexDirection: "row",
-        alignItems: "center",
-        flexWrap: "wrap",
-    },
-    price: {
-        fontSize: 16,
-        fontWeight: "600",
         color: "#000",
     },
-    estimatedPrice: {
-        fontSize: 14,
-        marginLeft: 6,
-        textDecorationLine: "line-through",
-        color: "#999",
-    },
-    wishBtnContainer: {
-        position: 'absolute',
-        top: 8,
-        right: 8,
-        zIndex: 10,
-    },
-    progressContainer: {
-        marginTop: 6,
-        width: '100%',
-    },
-    progressText: {
-        fontSize: 12,
-        marginTop: 2,
+    metaContainer: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 8,
     },
     ratingBadge: {
         flexDirection: "row",
@@ -482,17 +456,60 @@ const styles = StyleSheet.create({
         backgroundColor: "rgba(0,0,0,0.07)",
         paddingHorizontal: 6,
         paddingVertical: 3,
-        borderRadius: 12,
-        gap: 4,
+        borderRadius: 10,
+        gap: 3,
     },
     smallRatingText: {
         color: "#000",
-        fontSize: 12,
+        fontSize: 11,
+        fontFamily: "Raleway_600SemiBold",
+    },
+    horizontalStudents: {
+        fontSize: 11,
+        color: "#666",
+        fontFamily: "Raleway_600SemiBold",
     },
     lessonInfo: {
         flexDirection: "row",
         alignItems: "center",
+        marginBottom: 8,
+    },
+    horizontalLessons: {
+        fontSize: 11,
+        color: "#666",
+        marginLeft: 4,
+        fontFamily: "Raleway_600SemiBold",
+    },
+    progressContainer: {
         marginTop: 4,
-        marginBottom: 6,
+    },
+    progressText: {
+        fontSize: 11,
+        marginTop: 2,
+        fontFamily: "Raleway_600SemiBold",
+    },
+    horizontalPriceContainer: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginTop: 4,
+    },
+    price: {
+        fontSize: 14,
+        fontWeight: "600",
+        color: "#000",
+        fontFamily: "Raleway_600SemiBold",
+    },
+    estimatedPrice: {
+        fontSize: 12,
+        marginLeft: 6,
+        textDecorationLine: "line-through",
+        color: "#999",
+        fontFamily: "Raleway_600SemiBold",
+    },
+    wishBtnContainer: {
+        position: 'absolute',
+        top: 8,
+        right: 8,
+        zIndex: 10,
     },
 });

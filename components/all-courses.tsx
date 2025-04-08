@@ -172,7 +172,7 @@ const AllCourses = ({
                 />
                 {!hideViewAll && category !== "all" && (
                     <TouchableOpacity
-                        onPress={() => router.push("/(tabs)/courses")}
+                        onPress={() => router.push("/(tabs)/search")}
                         style={styles.viewAllButton}
                     >
                         <Text style={styles.viewAllText}>Xem tất cả</Text>
@@ -190,7 +190,7 @@ const AllCourses = ({
                 </Text>
                 {!hideViewAll && (
                     <TouchableOpacity
-                        onPress={() => router.push("/(tabs)/courses")}
+                        onPress={() => router.push("/(tabs)/search")}
                         style={styles.viewAllButton}
                     >
                         <Text style={styles.viewAllText}>
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
     },
     horizontalCardContainer: {
         width: 280,
-        marginRight: 16
+        marginRight: 8
     },
     viewAllButton: {
         alignItems: "center", 

@@ -40,7 +40,7 @@ const HomeScreen = () => {
                             <Text style={styles.sectionSubtitle}>Cập nhật những kiến thức mới nhất</Text>
                         </View>
                         <TouchableOpacity 
-                            onPress={() => router.push("/(tabs)/courses")}
+                            onPress={() => router.push("/(tabs)/search")}
                             style={styles.viewAllButton}
                         >
                             <Text style={styles.viewAllText}>Xem tất cả</Text>
@@ -57,7 +57,7 @@ const HomeScreen = () => {
                             <Text style={styles.sectionSubtitle}>Được nhiều học viên tin chọn</Text>
                         </View>
                         <TouchableOpacity 
-                            onPress={() => router.push("/(tabs)/courses")}
+                            onPress={() => router.push("/(tabs)/search")}
                             style={styles.viewAllButton}
                         >
                             <Text style={styles.viewAllText}>Xem tất cả</Text>

@@ -12,12 +12,14 @@ import {
 import { useFonts } from "expo-font";
 import { Nunito_400Regular, Nunito_500Medium, Nunito_700Bold, Nunito_600SemiBold } from "@expo-google-fonts/nunito";
 import { Raleway_600SemiBold, Raleway_700Bold } from "@expo-google-fonts/raleway";
+import React from "react";
 
 const WishListScreen = () => {
     const [loading, setLoading] = useState(false);
     const [courses, setCourses] = useState<CoursesType[]>([])
     const [filteredCourses, setFilterdCourses] = useState<CoursesType[]>([]);
     const wishList = useSelector((state: any) => state.user.wishList);
+    const [totalLessons, setTotalLessons] = useState(0);
 
     useEffect(() => {
         fetchCourses();
@@ -30,6 +32,14 @@ const WishListScreen = () => {
     useEffect(() => {
         filterCourses();
     }, [wishList])
+
+    useEffect(() => {
+        if (filteredCourses.length > 0) {
+            calculateTotalLessons();
+        } else {
+            setTotalLessons(0);
+        }
+    }, [filteredCourses]);
 
     const fetchCourses = async () => {
         try {
@@ -45,6 +55,13 @@ const WishListScreen = () => {
     const filterCourses = () => {
         const _filtered = courses.filter(course => wishList.find((item: any) => item.courseId === course._id))
         setFilterdCourses(_filtered);
+    }
+
+    const calculateTotalLessons = () => {
+        const total = filteredCourses.reduce((sum, course) => {
+            return sum + (course.courseData ? course.courseData.length : 0);
+        }, 0);
+        setTotalLessons(total);
     }
 
     let [fontsLoaded, fontsError] = useFonts({
@@ -69,14 +86,27 @@ const WishListScreen = () => {
                     <View style={styles.circle1}></View>
                     <View style={styles.circle2}></View>
                     <View style={styles.circle3}></View>
-                    <View style={[styles.titleContainer]}>
-                        <Text style={[styles.titleText, {fontFamily: 'Nunito_600SemiBold'}]}>Khóa học yêu thích</Text>
-                    </View>
-                    <ScrollView style={{marginTop: 20, flex: 1, marginHorizontal: 'auto', position: 'relative', zIndex: 99}} showsVerticalScrollIndicator={false}>
+
+                    {/* Stats summary */}
+                    {filteredCourses.length > 0 && (
+                        <View style={styles.statsContainer}>
+                            <View style={styles.statItem}>
+                                <Text style={styles.statNumber}>{filteredCourses.length}</Text>
+                                <Text style={styles.statLabel}>Khóa học</Text>
+                            </View>
+                            <View style={styles.statSeparator} />
+                            <View style={styles.statItem}>
+                                <Text style={styles.statNumber}>{totalLessons}</Text>
+                                <Text style={styles.statLabel}>Bài học</Text>
+                            </View>
+                        </View>
+                    )}
+                    
+                    <ScrollView style={{marginTop: 10, flex: 1, marginHorizontal: 'auto', position: 'relative', zIndex: 99}} showsVerticalScrollIndicator={false}>
                         { filteredCourses.length > 0 && (
                             filteredCourses.map(course => (
                                 <View style={{width: wp(90)}} key={course._id}>
-                                    <CourseCard item={course}/>
+                                    <CourseCard item={course} isHorizontal={true}/>
                                 </View>
                             ))
                         )}
@@ -107,7 +137,44 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: '#333',
     },
-
+    statsContainer: {
+        flexDirection: 'row',
+        backgroundColor: '#fff',
+        padding: 15,
+        marginHorizontal: 15,
+        marginTop: 15,
+        marginBottom: 5,
+        justifyContent: 'center',
+        alignItems: 'center',
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        borderRadius: 10,
+        zIndex: 10,
+        position: 'relative'
+    },
+    statItem: {
+        alignItems: 'center',
+        paddingHorizontal: 30,
+    },
+    statNumber: {
+        fontSize: 20,
+        fontFamily: 'Nunito_700Bold',
+        color: '#2467EC',
+    },
+    statLabel: {
+        fontSize: 14,
+        fontFamily: 'Nunito_500Medium',
+        color: '#757575',
+        marginTop: 2,
+    },
+    statSeparator: {
+        height: 30,
+        width: 1,
+        backgroundColor: '#e0e0e0',
+    },
     circle1: {
         width: 100,
         height: 100,
