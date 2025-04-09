@@ -244,6 +244,24 @@ const ProfileScreen = () => {
                                 </View>
                             </TouchableOpacity>
                             
+                            {/* FAQ */}
+                            <TouchableOpacity
+                                style={styles.menuItem}
+                                onPress={() => router.push("/(routes)/faq")}
+                            >
+                                <View style={styles.menuIconContainer}>
+                                    <FontAwesome name="question-circle" size={22} color="#2467EC" />
+                                </View>
+                                
+                                <View style={styles.menuContent}>
+                                    <View>
+                                        <Text style={styles.menuItemTitle}>Các câu hỏi thường gặp</Text>
+                                        <Text style={styles.menuItemSubtitle}>Giải đáp thắc mắc phổ biến</Text>
+                                    </View>
+                                    <AntDesign name="right" size={20} color="#CBD5E0" />
+                                </View>
+                            </TouchableOpacity>
+                            
                             {/* Logout */}
                             <TouchableOpacity
                                 style={styles.menuItem}

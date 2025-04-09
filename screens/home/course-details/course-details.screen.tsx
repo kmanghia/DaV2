@@ -248,7 +248,11 @@ const CourseDetailsScreen = () => {
                                 </Text>
                                 </View>
                             </View>
-
+                            <View style={styles.categoryContainer}>
+                                    <Text style={styles.category}>
+                                        {courseData?.categories}
+                                </Text>
+                                </View>
                             {/* Tab Navigation */}
                             <View style={styles.tabContainer}>
                                 {['About', 'Lessons', 'Reviews'].map((tab) => (
@@ -923,6 +927,19 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#666',
         fontFamily: 'Nunito_400Regular',
+    },
+    categoryContainer: {
+        marginBottom: 20,
+    },
+    category: {
+        fontSize: 14,
+        color: '#666',
+        fontFamily: 'Nunito_500Medium',
+        backgroundColor: '#f0f0f0',
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        borderRadius: 20,
+        alignSelf: 'flex-start',
     },
     reviewsList: {
         marginTop: 5,

@@ -53,7 +53,7 @@ const HomeBannerSlider = () => {
                                 </Text>
                                 <TouchableOpacity 
                                     style={styles.bannerButton}
-                                    onPress={() => router.push("/(tabs)/courses")}
+                                    onPress={() => router.push("/(tabs)/search")}
                                 >
                                     <Text style={styles.bannerButtonText}>Xem ngay</Text>
                                 </TouchableOpacity>

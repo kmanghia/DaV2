@@ -1,4 +1,5 @@
 import Ratings from "@/utils/ratings";
+import { URL_IMAGES } from "@/utils/url";
 import { Image, Text, View } from "react-native"
 
 const ReviewCard = ({ item }: { item: ReviewType }) => {
@@ -9,7 +10,7 @@ const ReviewCard = ({ item }: { item: ReviewType }) => {
                 style={{ width: 50, height: 50, borderRadius: 100 }}
                 source={{
                     uri:
-                        item.user.avatar?.url ||
+                        `${URL_IMAGES}/${item.user.avatar?.url}` ||
                         "https://res.cloudinary.com/dshp9jnuy/image/upload/v1665822253/avatars/nrxsg8sd9iy10bbsoenn.png"
                 }}
             />

@@ -12,7 +12,10 @@ import {
     Alert, 
     Modal, 
     Pressable, 
-    Image
+    Image,
+    StatusBar,
+    SafeAreaView,
+    Dimensions
 } from "react-native";
 import useUser from "@/hooks/useUser";
 import AsyncStorage from '@react-native-async-storage/async-storage'; // Import AsyncStorage
@@ -20,8 +23,11 @@ import { AnimatedCircularProgress } from 'react-native-circular-progress';
 import { Nunito_400Regular, Nunito_500Medium, Nunito_700Bold, Nunito_600SemiBold } from "@expo-google-fonts/nunito";
 import { Raleway_600SemiBold, Raleway_700Bold } from "@expo-google-fonts/raleway";
 import { useFonts } from "expo-font";
-import { AntDesign, Entypo, Octicons } from "@expo/vector-icons";
+import { AntDesign, Entypo, FontAwesome, FontAwesome5, Ionicons, MaterialCommunityIcons, MaterialIcons, Octicons } from "@expo/vector-icons";
 import React from "react";
+import { LinearGradient } from "expo-linear-gradient";
+
+const { width, height } = Dimensions.get('window');
 
 const CourseQuizzScreen = () => {
     const { courseData, activeVideo, id } = useLocalSearchParams();
@@ -148,9 +154,6 @@ const CourseQuizzScreen = () => {
 
     const closeModal = () => {
         setModalVisible(false);
-        // console.log(fillScreen);
-        // console.log((scored / questions.length) * MAX_POINTS_SCREEN);
-        // setFillScreen((scored / questions.length)* MAX_POINTS_SCREEN);
     }
 
     const renderResultModal = () => {
@@ -167,127 +170,102 @@ const CourseQuizzScreen = () => {
                         setModalVisible(!modalResultVisible);
                     }
                 }>
+                    <View style={styles.modalOverlay}>
                         <View style={styles.centeredView}>
                             <View style={styles.modalView}>
-                                <AnimatedCircularProgress
-                                    size={120}
-                                    width={12}
-                                    backgroundWidth={12}
-                                    fill={fill}
-                                    tintColor="#0085ff"
-                                    backgroundColor="rgba(0, 133, 255, 0.3)"
-                                    rotation={0}
-                                    duration={2000}
-                                    lineCap="round"
-                                >
-                                    {(fillValue) => (
-                                        <View>
-                                            <Text style={{fontSize: 20, fontWeight: '700', color: '#0085ff', fontFamily: "Nunito_500Medium" }}>
-                                                {Math.round((fillValue / 100) * MAX_POINTS)}
-                                            </Text>
-                                        </View>
-                                    )}
-                                </AnimatedCircularProgress>
-                                <View 
-                                    style={{
-                                        borderColor: '#0085ff',
-                                        borderWidth: 1,
-                                        borderRadius: 6,
-                                        marginVertical: 10,
-                                        paddingVertical: 10,
-                                        paddingHorizontal: 15,
-                                        width: 320,
-                                        gap: 20
-                                    }}
-                                >
-                                    <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-                                        <View>
-                                            <View style={{flexDirection: 'row', alignItems: 'center', gap: 4}}>
-                                                <View style={{width: 14, height: 14, backgroundColor: '#0085ff', borderRadius: 100, marginTop: 3}}></View>
-                                                <Text style={{fontSize: 20, color: '#0085ff'}}>100%</Text>
+                                <View style={styles.modalHeader}>
+                                    <Text style={styles.modalHeaderText}>Kết quả bài kiểm tra</Text>
+                                </View>
+                                
+                                <View style={styles.modalScoreContainer}>
+                                    <AnimatedCircularProgress
+                                        size={140}
+                                        width={12}
+                                        backgroundWidth={12}
+                                        fill={fill}
+                                        tintColor="#0085ff"
+                                        backgroundColor="rgba(0, 133, 255, 0.15)"
+                                        rotation={0}
+                                        duration={2000}
+                                        lineCap="round"
+                                    >
+                                        {(fillValue) => (
+                                            <View style={styles.scoreValueContainer}>
+                                                <Text style={styles.scoreValue}>
+                                                    {Math.round((fillValue / 100) * MAX_POINTS)}
+                                                </Text>
+                                                <Text style={styles.scoreMaxValue}>/100</Text>
                                             </View>
-                                            <Text style={[{fontFamily: 'Nunito_700Bold'}]}>
-                                                Hoàn thành
-                                            </Text>
-                                        </View>
-                                        <View style={{width: 86}}>
-                                            <View style={{flexDirection: 'row', alignItems: 'center', gap: 4}}>
-                                                <View style={{width: 14, height: 14, backgroundColor: '#0085ff', borderRadius: 100, marginTop: 2}}></View>
-                                                <Text style={{fontSize: 20, color: '#0085ff'}}>{questions.length}</Text>
+                                        )}
+                                    </AnimatedCircularProgress>
+                                </View>
+                                
+                                <View style={styles.modalStatsContainer}>
+                                    <View style={styles.modalStatsRow}>
+                                        <View style={styles.modalStatItem}>
+                                            <View style={styles.statIconContainer}>
+                                                <FontAwesome5 name="check-circle" size={16} color="#3db655" />
                                             </View>
-                                            <Text style={[{fontFamily: 'Nunito_700Bold'}]}>
-                                                Tổng câu hỏi
-                                            </Text>
+                                            <View>
+                                                <Text style={styles.statValue}>{scored}</Text>
+                                                <Text style={styles.statLabel}>Câu đúng</Text>
+                                            </View>
+                                        </View>
+                                        
+                                        <View style={styles.modalStatItem}>
+                                            <View style={[styles.statIconContainer, { backgroundColor: '#FFEFEF' }]}>
+                                                <FontAwesome5 name="times-circle" size={16} color="#FF5151" />
+                                            </View>
+                                            <View>
+                                                <Text style={[styles.statValue, { color: '#FF5151' }]}>{questions.length - scored}</Text>
+                                                <Text style={styles.statLabel}>Câu sai</Text>
+                                            </View>
                                         </View>
                                     </View>
-                                    <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-                                        <View>
-                                            <View style={{flexDirection: 'row', alignItems: 'center', gap: 4}}>
-                                                <View style={{width: 14, height: 14, backgroundColor: '#3db655', borderRadius: 100, marginTop: 2}}></View>
-                                                <Text style={{fontSize: 20, color: '#3db655'}}>{scored}</Text>
+                                    
+                                    <View style={styles.modalStatsRow}>
+                                        <View style={styles.modalStatItem}>
+                                            <View style={[styles.statIconContainer, { backgroundColor: '#EEF6FF' }]}>
+                                                <FontAwesome5 name="question-circle" size={16} color="#0085ff" />
                                             </View>
-                                            <Text style={[{fontFamily: 'Nunito_700Bold'}]}>
-                                                Câu đúng
-                                            </Text>
+                                            <View>
+                                                <Text style={[styles.statValue, { color: '#0085ff' }]}>{questions.length}</Text>
+                                                <Text style={styles.statLabel}>Tổng câu hỏi</Text>
+                                            </View>
                                         </View>
-                                        <View style={{width: 86}}>
-                                            <View style={{flexDirection: 'row', alignItems: 'center', gap: 4}}>
-                                                <View style={{width: 14, height: 14, backgroundColor: 'red', borderRadius: 100, marginTop: 2}}></View>
-                                                <Text style={{fontSize: 20, color: 'red'}}>{questions.length - scored}</Text>
+                                        
+                                        <View style={styles.modalStatItem}>
+                                            <View style={[styles.statIconContainer, { backgroundColor: '#F1F8ED' }]}>
+                                                <FontAwesome5 name="percentage" size={16} color="#3db655" />
                                             </View>
-                                            <Text style={[{fontFamily: 'Nunito_700Bold'}]}>
-                                                Câu sai
-                                            </Text>
+                                            <View>
+                                                <Text style={[styles.statValue, { color: '#3db655' }]}>{Math.round((scored/questions.length) * 100)}%</Text>
+                                                <Text style={styles.statLabel}>Tỷ lệ đúng</Text>
+                                            </View>
                                         </View>
                                     </View>
                                 </View>
-                                {/* Nút nhấn Modal */}
-                                <View style={{flexDirection: 'row', alignItems: 'center', gap: 40}}>
-                                    <View
-                                        style={{justifyContent: 'center', alignItems: 'center'}}
+                                
+                                <View style={styles.modalActionsContainer}>
+                                    <TouchableOpacity 
+                                        style={[styles.modalActionButton, styles.retryButton]}
+                                        onPress={() => onRetry()}
                                     >
-                                        <Pressable
-                                            style={[
-                                                styles.button, 
-                                                styles.buttonClose, 
-                                                {
-                                                    alignItems: 'center', 
-                                                    justifyContent: 'center',
-                                                    width: 40,
-                                                    height: 40,
-                                                    borderRadius: 40
-                                                }
-                                            ]}
-                                            onPress={() => onRetry()}
-                                        >
-                                            <AntDesign name="sync" size={18} color="#fff" />
-                                        </Pressable>
-                                        <Text style={[styles.textStyle, {color: '#444'}]}>Thử lại</Text>
-                                    </View>
-                                    <View
-                                        style={{justifyContent: 'center', alignItems: 'center'}}
+                                        <AntDesign name="reload1" size={18} color="#FFFFFF" />
+                                        <Text style={styles.modalActionButtonText}>Làm lại</Text>
+                                    </TouchableOpacity>
+                                    
+                                    <TouchableOpacity
+                                        style={[styles.modalActionButton, styles.reviewButton]} 
+                                        onPress={() => closeModal()}
                                     >
-                                        <Pressable
-                                            style={[
-                                                styles.button, 
-                                                styles.buttonClose, 
-                                                {
-                                                    alignItems: 'center', 
-                                                    justifyContent: 'center',
-                                                    width: 40,
-                                                    height: 40,
-                                                    borderRadius: 40
-                                                }
-                                            ]}
-                                            onPress={() => closeModal()}
-                                        >
-                                            <Octicons name="eye" size={18} color="#fff" />
-                                        </Pressable>
-                                        <Text style={[styles.textStyle, {color: '#444'}]}>Review</Text>
-                                    </View>
+                                        <Octicons name="eye" size={18} color="#FFFFFF" />
+                                        <Text style={styles.modalActionButtonText}>Xem lại</Text>
+                                    </TouchableOpacity>
                                 </View>
                             </View>
                         </View>
+                    </View>
                 </Modal>
             </View>
         )
@@ -304,9 +282,9 @@ const CourseQuizzScreen = () => {
             <>
                 { showResults ?
                     (
-                        <Text style={{fontSize: 20, color: '#0085ff'}}>{finishQuantity}%</Text>
+                        <Text style={styles.statValue}>{finishQuantity}%</Text>
                     ) : (
-                        <Text style={{fontSize: 20, color: '#0085ff'}}>0%</Text>
+                        <Text style={styles.statValue}>0%</Text>
                     )
                 }
             </>
@@ -325,9 +303,9 @@ const CourseQuizzScreen = () => {
             <>
                 { showResults ? 
                     (
-                        <Text style={{fontSize: 20, color: '#3db655'}}>{correctLength}</Text>
+                        <Text style={[styles.statValue, {color: '#3db655'}]}>{correctLength}</Text>
                     ):(
-                        <Text style={{fontSize: 20, color: '#3db655'}}>0</Text>
+                        <Text style={[styles.statValue, {color: '#3db655'}]}>0</Text>
                     )
                 }
             </>
@@ -346,206 +324,241 @@ const CourseQuizzScreen = () => {
             <>
                 { showResults ? 
                     (
-                        <Text style={{fontSize: 20, color: 'red'}}>{questions.length - correctLength}</Text>
+                        <Text style={[styles.statValue, {color: '#FF5151'}]}>{questions.length - correctLength}</Text>
                     ):(
-                        <Text style={{fontSize: 20, color: 'red'}}>0</Text>
+                        <Text style={[styles.statValue, {color: '#FF5151'}]}>0</Text>
                     )
                 }
             </>
         )
     }
 
+    const getOptionLetterLabel = (index: number) => {
+        return ['A', 'B', 'C', 'D'][index];
+    };
+
     return (
         <>
+            <StatusBar barStyle="dark-content" />
             { loading ? (
                 <Loader />
             ) : (
-                <ScrollView style={{ backgroundColor: '#aaa', flex: 1 }}>
-                    { questions.length > 0 &&
-                        questions.map((item: IQuizz, index: number) => (
-                            <View style={styles.options} key={item._id}>
-                                <Text style={styles.question}>
-                                    Câu {index + 1}: {item.question} 
-                                </Text>    
-                                <TouchableOpacity
-                                    style={[
-                                        styles.option,
-                                        seletedOptions[index] === 0 && styles.selectedOption,
-                                        showResults && item.correctAnswer === item.options[0] && styles.correctOption,
-                                        showResults && seletedOptions[index] === 0 && item.options[seletedOptions[index]] !== item.correctAnswer && styles.wrongOption
-                                    ]}
-                                    onPress={() => OnHandleOptionSelect(index, 0)}
-                                    disabled={showResults}
-                                >
-                                    <Text>{item.options[0]}</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={[
-                                        styles.option,
-                                        seletedOptions[index] === 1 && styles.selectedOption,
-                                        showResults && item.correctAnswer === item.options[1] && styles.correctOption,
-                                        showResults && seletedOptions[index] === 1 && item.options[seletedOptions[index]] !== item.correctAnswer && styles.wrongOption
-                                    ]}
-                                    onPress={() => OnHandleOptionSelect(index, 1)}
-                                    disabled={showResults}
-                                >
-                                    <Text>{item.options[1]}</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={[
-                                        styles.option,
-                                        seletedOptions[index] === 2 && styles.selectedOption,
-                                        showResults && item.correctAnswer === item.options[2] && styles.correctOption,
-                                        showResults && seletedOptions[index] === 2 && item.options[seletedOptions[index]] !== item.correctAnswer && styles.wrongOption
-                                    ]}
-                                    onPress={() => OnHandleOptionSelect(index, 2)}
-                                    disabled={showResults}
-                                >
-                                    <Text>{item.options[2]}</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={[
-                                        styles.option,
-                                        seletedOptions[index] === 3 && styles.selectedOption,
-                                        showResults && item.correctAnswer === item.options[3] && styles.correctOption,
-                                        showResults && seletedOptions[index] === 3 && item.options[seletedOptions[index]] !== item.correctAnswer && styles.wrongOption
-                                    ]}
-                                    onPress={() => OnHandleOptionSelect(index, 3)}
-                                    disabled={showResults}
-                                >
-                                    <Text>{item.options[3]}</Text>
-                                </TouchableOpacity>
-                            </View>
-                        ))
-                    }
-                    <View style={[styles.options, {alignItems: 'center'}]}>
-                        <AnimatedCircularProgress
-                            size={120}
-                            width={12}
-                            backgroundWidth={12}
-                            fill={fillScreen}
-                            tintColor="#0085ff"
-                            backgroundColor="rgba(0, 133, 255, 0.3)"
-                            rotation={0}
-                            duration={2000}
-                            lineCap="round"
-                        >
-                            {(fillValue) => (
-                                <View>
-                                    <Text style={{fontSize: 20, fontWeight: '700', color: '#0085ff', fontFamily: "Nunito_500Medium" }}>
-                                        {Math.round((fillValue / 100) * MAX_POINTS_SCREEN)}
-                                        {/* {fillValue} */}
-                                    </Text>
-                                </View>
-                            )}
-                        </AnimatedCircularProgress>
-                        <View 
-                            style={{
-                                borderColor: '#0085ff',
-                                borderWidth: 1,
-                                borderRadius: 6,
-                                marginVertical: 10,
-                                paddingVertical: 10,
-                                paddingHorizontal: 15,
-                                width: 320,
-                                gap: 20
-                            }}
-                        >
-                            <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-                                <View>
-                                    <View style={{flexDirection: 'row', alignItems: 'center', gap: 4}}>
-                                        <View style={{width: 14, height: 14, backgroundColor: '#0085ff', borderRadius: 100, marginTop: 3}}></View>
-                                        { renderTextFinishScreen() }
-                                    </View>
-                                    <Text style={[{fontFamily: 'Nunito_700Bold'}]}>
-                                        Hoàn thành
-                                    </Text>
-                                </View>
-                                <View style={{width: 86}}>
-                                    <View style={{flexDirection: 'row', alignItems: 'center', gap: 4}}>
-                                        <View style={{width: 14, height: 14, backgroundColor: '#0085ff', borderRadius: 100, marginTop: 2}}></View>
-                                        <Text style={{fontSize: 20, color: '#0085ff'}}>{questions.length}</Text>
-                                    </View>
-                                    <Text style={[{fontFamily: 'Nunito_700Bold'}]}>
-                                        Tổng câu hỏi
-                                    </Text>
-                                </View>
-                            </View>
-                            <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-                                <View>
-                                    <View style={{flexDirection: 'row', alignItems: 'center', gap: 4}}>
-                                        <View style={{width: 14, height: 14, backgroundColor: '#3db655', borderRadius: 100, marginTop: 2}}></View>
-                                        {/* <Text style={{fontSize: 20, color: '#3db655'}}>{scored}</Text> */}
-                                        { renderTextCorrectScreen() }
-                                    </View>
-                                    <Text style={[{fontFamily: 'Nunito_700Bold'}]}>
-                                        Câu đúng
-                                    </Text>
-                                </View>
-                                <View style={{width: 86}}>
-                                    <View style={{flexDirection: 'row', alignItems: 'center', gap: 4}}>
-                                        <View style={{width: 14, height: 14, backgroundColor: 'red', borderRadius: 100, marginTop: 2}}></View>
-                                        {/* <Text style={{fontSize: 20, color: 'red'}}>{questions.length - scored}</Text> */}
-                                        { renderTextWrongScreen() }
-                                    </View>
-                                    <Text style={[{fontFamily: 'Nunito_700Bold'}]}>
-                                        Câu sai
-                                    </Text>
-                                </View>
-                            </View>
-                        </View>
-                        {/* Nút nhấn Modal */}
-                        <View style={[{flexDirection: 'row', alignItems: 'center'}]}>
-                            <View
-                                style={{justifyContent: 'center', alignItems: 'center'}}
-                            >
-                                <Pressable
-                                    style={[
-                                        styles.button, 
-                                        styles.buttonClose, 
-                                        {
-                                            alignItems: 'center', 
-                                            justifyContent: 'center',
-                                            width: 40,
-                                            height: 40,
-                                            borderRadius: 40
-                                        },
-                                        !showResults && {display: 'none'}
-                                    ]}
-                                    onPress={() => onRetry()}
-                                >
-                                    <AntDesign name="sync" size={18} color="#fff" />
-                                </Pressable>
-                                <Text style={[styles.textStyle, {color: '#444'}, !showResults && {display: 'none'}]}>Thử lại</Text>
-                            </View>
-                            <View
-                                style={{justifyContent: 'center', alignItems: 'center'}}
-                            >
-                                <Pressable
-                                    style={[
-                                        styles.button, 
-                                        styles.buttonClose, 
-                                        {
-                                            alignItems: 'center', 
-                                            justifyContent: 'center',
-                                            width: 40,
-                                            height: 40,
-                                            borderRadius: 40
-                                        },
-                                        showResults && styles.btnDisabled
-                                    ]}
-                                    onPress={() => OnHandleSubmit()}
-                                >
-                                    <Entypo name="download" size={18} color="#fff" />
-                                </Pressable>
-                                <Text style={[styles.textStyle, {color: '#444'}, showResults && {display: 'none'}]}>Nộp bài</Text>
-                            </View>
-                        </View>
+                <SafeAreaView style={styles.container}>
+                    <View style={styles.header}>
+                        <Text style={styles.headerTitle}>Bài kiểm tra</Text>
+                        <Text style={styles.headerSubtitle}>{lesson?.title}</Text>
                     </View>
-                    { modalResultVisible &&
-                        renderResultModal()
-                    }
-                </ScrollView>
+                    
+                    <ScrollView 
+                        style={styles.scrollView}
+                        showsVerticalScrollIndicator={false}
+                        contentContainerStyle={styles.scrollViewContent}
+                    >
+                        {/* Questions */}
+                        { questions.length > 0 &&
+                            questions.map((item: IQuizz, index: number) => (
+                                <View style={styles.questionCard} key={item._id}>
+                                    <View style={styles.questionHeader}>
+                                        <View style={styles.questionNumberBadge}>
+                                            <Text style={styles.questionNumberText}>Câu {index + 1}</Text>
+                                        </View>
+                                        {showResults && (
+                                            <View style={styles.questionStatusContainer}>
+                                                {item.options[seletedOptions[index]] === item.correctAnswer ? (
+                                                    <View style={styles.correctBadge}>
+                                                        <FontAwesome5 name="check" size={12} color="#FFFFFF" />
+                                                        <Text style={styles.statusBadgeText}>Đúng</Text>
+                                                    </View>
+                                                ) : seletedOptions[index] !== undefined ? (
+                                                    <View style={styles.incorrectBadge}>
+                                                        <FontAwesome5 name="times" size={12} color="#FFFFFF" />
+                                                        <Text style={styles.statusBadgeText}>Sai</Text>
+                                                    </View>
+                                                ) : (
+                                                    <View style={styles.missedBadge}>
+                                                        <MaterialIcons name="remove" size={12} color="#FFFFFF" />
+                                                        <Text style={styles.statusBadgeText}>Chưa trả lời</Text>
+                                                    </View>
+                                                )}
+                                            </View>
+                                        )}
+                                    </View>
+                                    
+                                    <Text style={styles.questionText}>{item.question}</Text>
+                                    
+                                    <View style={styles.optionsContainer}>
+                                        {item.options.map((option, optionIndex) => (
+                                            <TouchableOpacity
+                                                key={optionIndex}
+                                                style={[
+                                                    styles.optionButton,
+                                                    seletedOptions[index] === optionIndex && styles.selectedOption,
+                                                    showResults && item.correctAnswer === option && styles.correctOption,
+                                                    showResults && seletedOptions[index] === optionIndex && 
+                                                        item.options[seletedOptions[index]] !== item.correctAnswer && 
+                                                        styles.wrongOption
+                                                ]}
+                                                onPress={() => OnHandleOptionSelect(index, optionIndex)}
+                                                disabled={showResults}
+                                            >
+                                                <View style={[
+                                                    styles.optionLabelContainer,
+                                                    seletedOptions[index] === optionIndex && styles.selectedOptionLabel,
+                                                    showResults && item.correctAnswer === option && styles.correctOptionLabel,
+                                                    showResults && seletedOptions[index] === optionIndex && 
+                                                        item.options[seletedOptions[index]] !== item.correctAnswer && 
+                                                        styles.wrongOptionLabel
+                                                ]}>
+                                                    <Text style={[
+                                                        styles.optionLabelText,
+                                                        seletedOptions[index] === optionIndex && styles.selectedOptionLabelText,
+                                                        showResults && item.correctAnswer === option && styles.correctOptionLabelText,
+                                                        showResults && seletedOptions[index] === optionIndex && 
+                                                            item.options[seletedOptions[index]] !== item.correctAnswer && 
+                                                            styles.wrongOptionLabelText
+                                                    ]}>{getOptionLetterLabel(optionIndex)}</Text>
+                                                </View>
+                                                <Text style={[
+                                                    styles.optionText,
+                                                    seletedOptions[index] === optionIndex && styles.selectedOptionText,
+                                                    showResults && item.correctAnswer === option && styles.correctOptionText,
+                                                    showResults && seletedOptions[index] === optionIndex && 
+                                                        item.options[seletedOptions[index]] !== item.correctAnswer && 
+                                                        styles.wrongOptionText
+                                                ]}>{option}</Text>
+                                                
+                                                {showResults && item.correctAnswer === option && (
+                                                    <View style={styles.correctIndicator}>
+                                                        <FontAwesome5 name="check" size={12} color="#FFFFFF" />
+                                                    </View>
+                                                )}
+                                                
+                                                {showResults && seletedOptions[index] === optionIndex && 
+                                                    item.options[seletedOptions[index]] !== item.correctAnswer && (
+                                                    <View style={styles.wrongIndicator}>
+                                                        <FontAwesome5 name="times" size={12} color="#FFFFFF" />
+                                                    </View>
+                                                )}
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
+                                </View>
+                            ))
+                        }
+                        
+                        {/* Results Summary Card */}
+                        <View style={styles.resultsSummaryCard}>
+                            <View style={styles.resultsSummaryHeader}>
+                                <Text style={styles.resultsSummaryTitle}>Tổng kết</Text>
+                            </View>
+                            
+                            <View style={styles.progressContainer}>
+                                <AnimatedCircularProgress
+                                    size={120}
+                                    width={10}
+                                    backgroundWidth={10}
+                                    fill={fillScreen}
+                                    tintColor="#0085ff"
+                                    backgroundColor="rgba(0, 133, 255, 0.15)"
+                                    rotation={0}
+                                    duration={2000}
+                                    lineCap="round"
+                                >
+                                    {(fillValue) => (
+                                        <View style={styles.scoreValueContainer}>
+                                            <Text style={styles.scoreValue}>
+                                                {Math.round((fillValue / 100) * MAX_POINTS_SCREEN)}
+                                            </Text>
+                                            <Text style={styles.scoreMaxValue}>/100</Text>
+                                        </View>
+                                    )}
+                                </AnimatedCircularProgress>
+                            </View>
+                            
+                            <View style={styles.statsContainer}>
+                                <View style={styles.statsRow}>
+                                    <View style={styles.statItem}>
+                                        <View style={[styles.statIconContainer, { backgroundColor: '#EEF6FF' }]}>
+                                            <Ionicons name="checkmark-done" size={16} color="#0085ff" />
+                                        </View>
+                                        <View>
+                                            {renderTextFinishScreen()}
+                                            <Text style={styles.statLabel}>Hoàn thành</Text>
+                                        </View>
+                                    </View>
+                                    
+                                    <View style={styles.statItem}>
+                                        <View style={[styles.statIconContainer, { backgroundColor: '#EEF6FF' }]}>
+                                            <FontAwesome5 name="question" size={16} color="#0085ff" />
+                                        </View>
+                                        <View>
+                                            <Text style={styles.statValue}>{questions.length}</Text>
+                                            <Text style={styles.statLabel}>Tổng câu hỏi</Text>
+                                        </View>
+                                    </View>
+                                </View>
+                                
+                                <View style={styles.statsRow}>
+                                    <View style={styles.statItem}>
+                                        <View style={[styles.statIconContainer, { backgroundColor: '#F1F8ED' }]}>
+                                            <FontAwesome5 name="check" size={16} color="#3db655" />
+                                        </View>
+                                        <View>
+                                            {renderTextCorrectScreen()}
+                                            <Text style={styles.statLabel}>Câu đúng</Text>
+                                        </View>
+                                    </View>
+                                    
+                                    <View style={styles.statItem}>
+                                        <View style={[styles.statIconContainer, { backgroundColor: '#FFEFEF' }]}>
+                                            <FontAwesome5 name="times" size={16} color="#FF5151" />
+                                        </View>
+                                        <View>
+                                            {renderTextWrongScreen()}
+                                            <Text style={styles.statLabel}>Câu sai</Text>
+                                        </View>
+                                    </View>
+                                </View>
+                            </View>
+                            
+                            <View style={styles.actionsContainer}>
+                                {showResults ? (
+                                    <TouchableOpacity
+                                        style={styles.actionButton}
+                                        onPress={() => onRetry()}
+                                    >
+                                        <LinearGradient
+                                            colors={['#0085ff', '#4FACFE']}
+                                            style={styles.actionButtonGradient}
+                                            start={{ x: 0, y: 0 }}
+                                            end={{ x: 1, y: 0 }}
+                                        >
+                                            <AntDesign name="reload1" size={20} color="#FFFFFF" />
+                                            <Text style={styles.actionButtonText}>Làm lại</Text>
+                                        </LinearGradient>
+                                    </TouchableOpacity>
+                                ) : (
+                                    <TouchableOpacity
+                                        style={styles.actionButton}
+                                        onPress={() => OnHandleSubmit()}
+                                    >
+                                        <LinearGradient
+                                            colors={['#0085ff', '#4FACFE']}
+                                            style={styles.actionButtonGradient}
+                                            start={{ x: 0, y: 0 }}
+                                            end={{ x: 1, y: 0 }}
+                                        >
+                                            <MaterialCommunityIcons name="check-all" size={20} color="#FFFFFF" />
+                                            <Text style={styles.actionButtonText}>Nộp bài</Text>
+                                        </LinearGradient>
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+                        </View>
+                    </ScrollView>
+                    
+                    {modalResultVisible && renderResultModal()}
+                </SafeAreaView>
             )}
         </>
     );
@@ -553,99 +566,312 @@ const CourseQuizzScreen = () => {
 
 
 const styles = StyleSheet.create({
-    options: {
-        padding: 10,
-        margin: 10,
-        gap: 4,
-        backgroundColor: '#f5f5f5',
-        borderRadius: 10,
+    container: {
+        flex: 1,
+        backgroundColor: '#F7F8FA',
+    },
+    header: {
+        paddingHorizontal: 20,
+        paddingTop: 20,
+        paddingBottom: 15,
+        backgroundColor: '#FFFFFF',
+        borderBottomWidth: 1,
+        borderBottomColor: '#F0F0F5',
+    },
+    headerTitle: {
+        fontSize: 22,
+        fontFamily: 'Raleway_700Bold',
+        color: '#1E293B',
+        marginBottom: 4,
+    },
+    headerSubtitle: {
+        fontSize: 14,
+        fontFamily: 'Nunito_500Medium',
+        color: '#64748B',
+    },
+    scrollView: {
+        flex: 1,
+    },
+    scrollViewContent: {
+        paddingHorizontal: 16,
+        paddingVertical: 20,
+        paddingBottom: 40,
+    },
+    questionCard: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        padding: 20,
+        marginBottom: 16,
         shadowColor: '#000',
         shadowOffset: {
             width: 0,
-            height: 2
+            height: 2,
         },
-        shadowOpacity: 0.25,
-        shadowRadius: 3.84,
-        elevation: 5
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 2,
     },
-    option: {
-        padding: 15,
-        borderRadius: 10,
+    questionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    questionNumberBadge: {
+        backgroundColor: '#EEF6FF',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 8,
+    },
+    questionNumberText: {
+        color: '#0085ff',
+        fontSize: 14,
+        fontFamily: 'Nunito_700Bold',
+    },
+    questionStatusContainer: {
+        flexDirection: 'row',
+    },
+    correctBadge: {
+        backgroundColor: '#3db655',
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        borderRadius: 8,
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    incorrectBadge: {
+        backgroundColor: '#FF5151',
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        borderRadius: 8,
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    missedBadge: {
+        backgroundColor: '#9CA3AF',
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        borderRadius: 8,
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    statusBadgeText: {
+        color: '#FFFFFF',
+        fontSize: 12,
+        fontFamily: 'Nunito_600SemiBold',
+        marginLeft: 4,
+    },
+    questionText: {
+        fontSize: 16,
+        fontFamily: 'Nunito_600SemiBold',
+        color: '#1E293B',
+        lineHeight: 24,
+        marginBottom: 20,
+    },
+    optionsContainer: {
+        marginTop: 5,
+    },
+    optionButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F8FAFC',
         borderWidth: 1,
-        borderColor: '#ccc',
-        backgroundColor: "#eee",
-        marginVertical: 5
+        borderColor: '#E2E8F0',
+        borderRadius: 12,
+        padding: 14,
+        marginBottom: 12,
+        position: 'relative',
+    },
+    optionLabelContainer: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: '#E2E8F0',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
+    },
+    optionLabelText: {
+        fontSize: 14,
+        fontFamily: 'Nunito_700Bold',
+        color: '#64748B',
+    },
+    optionText: {
+        flex: 1,
+        fontSize: 15,
+        fontFamily: 'Nunito_500Medium',
+        color: '#334155',
     },
     selectedOption: {
-        backgroundColor: '#aaa',
-        color: 'white'
+        backgroundColor: '#EEF6FF',
+        borderColor: '#0085ff',
     },
-    btnNext: {
+    selectedOptionLabel: {
         backgroundColor: '#0085ff',
-        padding: 10,
-        marginVertical: 10,
-        borderRadius: 5,
-        marginHorizontal: 10,
     },
-    btnDisabled: {
-        backgroundColor: '#ccc',
-        display: 'none'
+    selectedOptionLabelText: {
+        color: '#FFFFFF',
     },
-    btnText: {
-        color: '#fff',
-        fontSize: 20,
-        textAlign: 'center'
-    },
-    question: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        marginVertical: 10
-    },
-    result: {
-        alignContent: 'center',
-        justifyContent: 'center',
-    },
-    resultText: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        margin: 10
-    },
-    btnTryAgain: {
-        backgroundColor: '#0085ff',
-        padding: 10,
-        marginVertical: 10,
-        borderRadius: 5,
-        marginHorizontal: 10
-    },
-    btnTryAgainText: {
-        color: '#fff',
-        fontSize: 20,
-        textAlign: 'center'
-    },
-    selectedOptions: {
-        backgroundColor: '#949494'
+    selectedOptionText: {
+        color: '#0085ff',
+        fontFamily: 'Nunito_600SemiBold',
     },
     correctOption: {
-        backgroundColor: 'green'
+        backgroundColor: '#F1F8ED',
+        borderColor: '#3db655',
+    },
+    correctOptionLabel: {
+        backgroundColor: '#3db655',
+    },
+    correctOptionLabelText: {
+        color: '#FFFFFF',
+    },
+    correctOptionText: {
+        color: '#3db655',
+        fontFamily: 'Nunito_600SemiBold',
     },
     wrongOption: {
-        backgroundColor: 'red'
+        backgroundColor: '#FFEFEF',
+        borderColor: '#FF5151',
     },
-
-
-    // Modal
-    centeredView: {
-        flex: 1,
+    wrongOptionLabel: {
+        backgroundColor: '#FF5151',
+    },
+    wrongOptionLabelText: {
+        color: '#FFFFFF',
+    },
+    wrongOptionText: {
+        color: '#FF5151',
+        fontFamily: 'Nunito_600SemiBold',
+    },
+    correctIndicator: {
+        position: 'absolute',
+        right: 14,
+        width: 22,
+        height: 22,
+        borderRadius: 11,
+        backgroundColor: '#3db655',
         justifyContent: 'center',
         alignItems: 'center',
-        marginTop: 22,
+    },
+    wrongIndicator: {
+        position: 'absolute',
+        right: 14,
+        width: 22,
+        height: 22,
+        borderRadius: 11,
+        backgroundColor: '#FF5151',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    resultsSummaryCard: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        padding: 20,
+        marginTop: 10,
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 2,
+    },
+    resultsSummaryHeader: {
+        marginBottom: 20,
+    },
+    resultsSummaryTitle: {
+        fontSize: 18,
+        fontFamily: 'Raleway_700Bold',
+        color: '#1E293B',
+    },
+    progressContainer: {
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    scoreValueContainer: {
+        flexDirection: 'row',
+        alignItems: 'baseline',
+    },
+    scoreValue: {
+        fontSize: 24,
+        fontFamily: 'Nunito_700Bold',
+        color: '#0085ff',
+    },
+    scoreMaxValue: {
+        fontSize: 16,
+        fontFamily: 'Nunito_600SemiBold',
+        color: '#0085ff',
+    },
+    statsContainer: {
+        backgroundColor: '#F8FAFC',
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 20,
+    },
+    statsRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 16,
+    },
+    statItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        width: '48%',
+    },
+    statIconContainer: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: '#E2E8F0',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 10,
+    },
+    statValue: {
+        fontSize: 16,
+        fontFamily: 'Nunito_700Bold',
+        color: '#0085ff',
+    },
+    statLabel: {
+        fontSize: 13,
+        fontFamily: 'Nunito_500Medium',
+        color: '#64748B',
+    },
+    actionsContainer: {
+        alignItems: 'center',
+    },
+    actionButton: {
+        width: '100%',
+        overflow: 'hidden',
+        borderRadius: 12,
+    },
+    actionButtonGradient: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingVertical: 15,
+    },
+    actionButtonText: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        fontFamily: 'Nunito_700Bold',
+        marginLeft: 8,
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    centeredView: {
+        width: width * 0.9,
+        maxWidth: 350,
     },
     modalView: {
-        margin: 20,
         backgroundColor: 'white',
         borderRadius: 20,
-        padding: 35,
-        alignItems: 'center',
         shadowColor: '#000',
         shadowOffset: {
             width: 0,
@@ -654,28 +880,64 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.25,
         shadowRadius: 4,
         elevation: 5,
+        overflow: 'hidden',
     },
-    button: {
-        borderRadius: 20,
-        padding: 10,
-        elevation: 2,
+    modalHeader: {
+        backgroundColor: '#0085ff',
+        paddingVertical: 15,
+        paddingHorizontal: 20,
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
     },
-    buttonOpen: {
-        backgroundColor: '#F194FF',
-    },
-    buttonClose: {
-        backgroundColor: '#2196F3',
-    },
-    textStyle: {
-        color: 'white',
-        fontWeight: 'bold',
+    modalHeaderText: {
+        fontSize: 18,
+        fontFamily: 'Raleway_700Bold',
+        color: '#FFFFFF',
         textAlign: 'center',
     },
-    modalText: {
-        color: '#3db655',
-        textAlign: 'center',
-        fontSize: 20,
-        fontWeight: '700'
+    modalScoreContainer: {
+        alignItems: 'center',
+        paddingVertical: 25,
+    },
+    modalStatsContainer: {
+        padding: 20,
+        backgroundColor: '#F8FAFC',
+    },
+    modalStatsRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 16,
+    },
+    modalStatItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        width: '48%',
+    },
+    modalActionsContainer: {
+        flexDirection: 'row',
+        padding: 20,
+        justifyContent: 'space-between',
+    },
+    modalActionButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        borderRadius: 10,
+        width: '48%',
+    },
+    retryButton: {
+        backgroundColor: '#0085ff',
+    },
+    reviewButton: {
+        backgroundColor: '#3db655',
+    },
+    modalActionButtonText: {
+        color: '#FFFFFF',
+        fontSize: 14,
+        fontFamily: 'Nunito_600SemiBold',
+        marginLeft: 8,
     },
 })
 

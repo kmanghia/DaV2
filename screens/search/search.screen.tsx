@@ -88,6 +88,7 @@ const styles = StyleSheet.create({
         shadowRadius: 5,
         elevation: 4,
         overflow: "hidden",
+        height: hp(18),
     },
     courseContent: {
         flexDirection: "row",
@@ -96,7 +97,7 @@ const styles = StyleSheet.create({
     courseImageContainer: {
         width: "40%",
         position: "relative",
-        height: 160,
+    
         backgroundColor: '#f5f5f5',
     },
     courseImage: {
@@ -127,15 +128,15 @@ const styles = StyleSheet.create({
     ratingContainer: {
         flexDirection: "row",
         alignItems: "center",
-        backgroundColor: "#FFB800",
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 4,
+        backgroundColor: "rgba(0,0,0,0.07)",
+        paddingHorizontal: 6,
+        paddingVertical: 3,
+        borderRadius: 10,
+        gap: 3,
     },
     ratingText: {
-        color: "white",
-        fontSize: 12,
-        marginLeft: 4,
+        color: "#000",
+        fontSize: 11,
         fontFamily: "Nunito_700Bold",
     },
     studentsText: {
@@ -862,7 +863,7 @@ const SearchScreen = () => {
                                         <Text style={styles.courseTitle} numberOfLines={2}>{item.name}</Text>
                                         <View style={styles.courseMeta}>
                                             <View style={styles.ratingContainer}>
-                                                <FontAwesome name="star" size={12} color="white" />
+                                                <FontAwesome name="star" size={12} color="#ffb800" />
                                                 <Text style={styles.ratingText}>{item?.ratings?.toFixed(1)}</Text>
                                             </View>
                                             <Text style={styles.studentsText}>

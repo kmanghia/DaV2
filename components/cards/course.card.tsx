@@ -406,6 +406,7 @@ const styles = StyleSheet.create({
     // Horizontal styles
     horizontalContainer: {
         width: "100%",
+        
         backgroundColor: "#FFFF",
         borderRadius: 10,
         overflow: "hidden",
@@ -433,10 +434,11 @@ const styles = StyleSheet.create({
     },
     horizontalContentContainer: {
         padding: 12,
+        height: 165,
     },
     titleContainer: {
         marginBottom: 8,
-        minHeight: 36,
+        minHeight: 40,
     },
     horizontalTitle: {
         fontSize: 13,
