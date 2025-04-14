@@ -1,6 +1,7 @@
 import AllCourses from "@/components/all-courses";
 import HeaderComponent from "@/components/header";
 import HomeBannerSlider from "@/components/home-banner-slider";
+import MentorList from "@/components/mentor-list";
 import SearchInput from "@/components/search.input";
 import { ScrollView, View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { Raleway_700Bold, Raleway_600SemiBold } from "@expo-google-fonts/raleway";
@@ -31,6 +32,23 @@ const HomeScreen = () => {
                 contentContainerStyle={styles.scrollContent}
             >
                 <HomeBannerSlider />
+                
+                {/* Mentors section */}
+                <View style={styles.sectionContainer}>
+                    <View style={styles.sectionHeader}>
+                        <View>
+                            <Text style={styles.sectionTitle}>Giảng viên nổi bật</Text>
+                            <Text style={styles.sectionSubtitle}>Chuyên gia hàng đầu trong lĩnh vực</Text>
+                        </View>
+                        <TouchableOpacity 
+                            onPress={() => router.push("/(tabs)/search")}
+                            style={styles.viewAllButton}
+                        >
+                            <Text style={styles.viewAllText}>Xem tất cả</Text>
+                        </TouchableOpacity>
+                    </View>
+                    <MentorList />
+                </View>
                 
                 {/* Khóa học mới section */}
                 <View style={styles.sectionContainer}>

@@ -13,6 +13,7 @@ type Avatar = {
 }
 
 type User = {
+    progress: any;
     _id: string;
     name: string;
     email: string;

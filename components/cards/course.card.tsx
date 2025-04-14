@@ -415,7 +415,7 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.1,
         shadowRadius: 4,
         elevation: 2,
-        marginBottom: 6,
+       
     },
     horizontalImageContainer: {
         position: 'relative',
@@ -434,7 +434,7 @@ const styles = StyleSheet.create({
     },
     horizontalContentContainer: {
         padding: 12,
-        height: 165,
+        height: 150,
     },
     titleContainer: {
         marginBottom: 8,

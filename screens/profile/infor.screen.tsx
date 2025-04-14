@@ -26,7 +26,8 @@ const InforScreen = () => {
     const user = useSelector((state: any) => state.user);
     const [userData, setUserData] = useState({
         name: '',
-        email: ''
+        email: '',
+        createdAt:''
     });
     const [editMode, setEditMode] = useState(false);
     const [newName, setNewName] = useState('');
@@ -62,7 +63,8 @@ const InforScreen = () => {
                 if (response.data) {
                     setUserData({
                         name: response.data.user.name,
-                        email: response.data.user.email
+                        email: response.data.user.email,
+                        createdAt: response.data.user.createdAt
                     });
                     setNewName(response.data.user.name);
                 }
@@ -228,7 +230,9 @@ const InforScreen = () => {
                                 </View>
                                 <View style={styles.fieldContent}>
                                     <Text style={styles.fieldLabel}>Thành viên từ</Text>
-                                    <Text style={styles.fieldValue}>Tháng 4, 2023</Text>
+                                    <Text style={styles.fieldValue}>
+                                        {`Tháng ${new Date(userData.createdAt).getMonth() + 1}, ${new Date(userData.createdAt).getFullYear()}`}
+                                    </Text>
                                 </View>
                             </View>
                         </View>

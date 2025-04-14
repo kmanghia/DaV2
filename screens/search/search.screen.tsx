@@ -88,7 +88,7 @@ const styles = StyleSheet.create({
         shadowRadius: 5,
         elevation: 4,
         overflow: "hidden",
-        height: hp(18),
+        height: hp(20),
     },
     courseContent: {
         flexDirection: "row",
