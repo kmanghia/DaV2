@@ -72,7 +72,7 @@ const MentorList = () => {
           />
         </View>
         <Text style={styles.mentorName} numberOfLines={1}>
-          {item.user?.name || 'Mentor'}
+          {(item.user?.name?.split(' ')[0]) || 'Mentor'}
         </Text>
       </TouchableOpacity>
     );
@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
   },
   mentorItem: {
     alignItems: 'center',
-    marginHorizontal: 8,
+    marginHorizontal: 6,
     width: 80,
   },
   avatarContainer: {

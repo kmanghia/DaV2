@@ -106,7 +106,7 @@ const QuestionsCard = (
                                         style={{ width: 50, height: 50, borderRadius: 100 }}
                                         source={{
                                             uri:
-                                                reply.user?.avatar?.url ||
+                                                `${URL_IMAGES}/${reply.user?.avatar?.url}` ||
                                                 "https://res.cloudinary.com/dshp9jnuy/image/upload/v1665822253/avatars/nrxsg8sd9iy10bbsoenn.png",
                                         }}
                                     />

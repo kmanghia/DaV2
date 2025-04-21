@@ -44,6 +44,12 @@ const TabsLayout = () => {
                         }}    
                     />
                     <Tabs.Screen 
+                        name="chat/index" 
+                        options={{
+                            title: 'Tin nhắn'
+                        }}    
+                    />
+                    <Tabs.Screen 
                         name="profile/index" 
                         options={{
                             title: 'Hồ sơ'

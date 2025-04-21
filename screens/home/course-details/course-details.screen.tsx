@@ -2,7 +2,7 @@ import ReviewCard from "@/components/cards/review.card";
 import CourseLesson from "@/components/course-lesson";
 import Loader from "@/components/loader";
 import useUser from "@/hooks/useUser";
-import { URL_SERVER, URL_VIDEO, URL_VIDEOS } from "@/utils/url";
+import { URL_IMAGES, URL_SERVER, URL_VIDEO, URL_VIDEOS } from "@/utils/url";
 import { Nunito_400Regular, Nunito_500Medium, Nunito_600SemiBold, Nunito_700Bold } from "@expo-google-fonts/nunito";
 import { Raleway_600SemiBold, Raleway_700Bold } from "@expo-google-fonts/raleway";
 import { FontAwesome, Ionicons, AntDesign, MaterialIcons } from "@expo/vector-icons";
@@ -45,6 +45,8 @@ const CourseDetailsScreen = () => {
         refresh: ""
     });
     const [showAllReviews, setShowAllReviews] = useState(false);
+    const [mentorData, setMentorData] = useState<any>(null);
+    const [loadingMentor, setLoadingMentor] = useState(false);
 
     useEffect(() => {
         if (user?.courses.find((i: any) => i._id === courseData._id)) {
@@ -161,6 +163,44 @@ const CourseDetailsScreen = () => {
         return { hours, minutes };
     };
 
+    const fetchMentorDetails = async (mentorId: string) => {
+        if (!mentorId) return;
+        
+        setLoadingMentor(true);
+        try {
+            const accessToken = await AsyncStorage.getItem('access_token');
+            const refreshToken = await AsyncStorage.getItem('refresh_token');
+            
+            const response = await axios.get(`${URL_SERVER}/${mentorId}?populate=true`, {
+                headers: {
+                    'access-token': accessToken,
+                    'refresh-token': refreshToken
+                }
+            });
+            console.log("Thong tin Mentor:" + response)
+            if (response.data.success) {
+                setMentorData(response.data.mentor);
+            }
+        } catch (err) {
+            console.error('Error fetching mentor details:', err);
+        } finally {
+            setLoadingMentor(false);
+        }
+    };
+
+    useEffect(() => {
+        console.log("Mentor ID:", courseData?.mentor);
+        if (courseData?.mentor) {
+            // Nếu mentor là ObjectId, sử dụng trực tiếp
+            const mentorId = typeof courseData.mentor === 'string' 
+                ? courseData.mentor 
+                : courseData.mentor._id || courseData.mentor;
+            
+            console.log("Mentor ID to fetch:", mentorId);
+            fetchMentorDetails(mentorId);
+        }
+    }, [courseData]);
+
     return (
         <>
             {loading ? (
@@ -248,6 +288,7 @@ const CourseDetailsScreen = () => {
                                 </Text>
                                 </View>
                             </View>
+
                             <View style={styles.categoryContainer}>
                                     <Text style={styles.category}>
                                         {courseData?.categories}
@@ -304,6 +345,52 @@ const CourseDetailsScreen = () => {
                             {/* Tab Content */}
                             {activeButton === "About" && (
                                 <View style={styles.aboutContainer}>
+                                     {/* Mentor Info */}
+                                     <View style={styles.infoSection}>
+                                        <View style={styles.sectionTitleContainer}>
+                                            <Ionicons name="person" size={22} color="#0070e0" />
+                                            <Text style={styles.sectionTitle}>
+                                                Giảng viên
+                                            </Text>
+                                        </View>
+                                        {loadingMentor ? (
+                                            <View style={styles.instructorCard}>
+                                                <ActivityIndicator size="small" color="#0070e0" />
+                                            </View>
+                                        ) : mentorData ? (
+                                            <TouchableOpacity 
+                                                style={styles.instructorCard}
+                                                onPress={() => router.push({
+                                                    pathname: '/(routes)/mentor-profile',
+                                                    params: { mentorId: mentorData._id }
+                                                })}
+                                            >
+                                                <View style={styles.instructorHeader}>
+                                                    <Image 
+                                                        source={{ 
+                                                            uri: mentorData.user?.avatar?.url 
+                                                                ? `${URL_IMAGES}/${mentorData.user.avatar.url}`
+                                                                : `https://ui-avatars.com/api/?name=${encodeURIComponent(mentorData.user?.name || 'Mentor')}`
+                                                        }}
+                                                        style={styles.instructorAvatar}
+                                                    />
+                                                    <View style={styles.instructorInfo}>
+                                                        <Text style={styles.instructorName}>
+                                                            {mentorData.user?.name || 'Giảng viên'}
+                                                        </Text>
+                                                        <Text style={styles.instructorRole}>
+                                                            {mentorData.specialization?.join(', ') || 'Chuyên gia giảng dạy'}
+                                                        </Text>
+                                                    </View>
+                                                    <Ionicons name="chevron-forward" size={24} color="#666" />
+                                                </View>
+                                            </TouchableOpacity>
+                                        ) : (
+                                            <View style={styles.instructorCard}>
+                                                <Text style={styles.emptyText}>Không có thông tin giảng viên</Text>
+                                            </View>
+                                        )}
+                                    </View>
                                     {/* Course Description */}
                                     <View style={styles.infoSection}>
                                         <View style={styles.sectionTitleContainer}>
@@ -351,6 +438,8 @@ const CourseDetailsScreen = () => {
                                         </View>
                                     </View>
 
+                                   
+
                                     {/* What you'll learn */}
                                     <View style={styles.infoSection}>
                                         <View style={styles.sectionTitleContainer}>
@@ -394,33 +483,6 @@ const CourseDetailsScreen = () => {
                                             ))}
                                         </View>
                                     </View>
-                                    
-                                    {/* Instructor */}
-                                    {/* <View style={styles.infoSection}>
-                                        <View style={styles.sectionTitleContainer}>
-                                            <Ionicons name="person" size={22} color="#0070e0" />
-                                            <Text style={styles.sectionTitle}>
-                                                Giảng viên
-                                            </Text>
-                                        </View>
-                                        <View style={styles.instructorCard}>
-                                            <View style={styles.instructorHeader}>
-                                                <View style={styles.instructorAvatar}>
-                                                    <Text style={styles.instructorInitial}>
-                                                        G
-                                                    </Text>
-                                                </View>
-                                                <View style={styles.instructorInfo}>
-                                                    <Text style={styles.instructorName}>
-                                                        Giảng viên khóa học
-                                                    </Text>
-                                                    <Text style={styles.instructorRole}>
-                                                        Chuyên gia giảng dạy
-                                                    </Text>
-                                                </View>
-                                            </View>
-                                        </View>
-                                    </View> */}
                                 </View>
                             )}
 
@@ -823,48 +885,6 @@ const styles = StyleSheet.create({
         color: '#444',
         lineHeight: 22,
     },
-    instructorCard: {
-        backgroundColor: '#f9f9f9',
-        borderRadius: 12,
-        padding: 16,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
-        elevation: 1,
-    },
-    instructorHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    instructorAvatar: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
-        backgroundColor: '#0070e0',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 15,
-    },
-    instructorInitial: {
-        color: 'white',
-        fontSize: 22,
-        fontFamily: 'Nunito_700Bold',
-    },
-    instructorInfo: {
-        flex: 1,
-    },
-    instructorName: {
-        fontSize: 16,
-        fontFamily: 'Nunito_700Bold',
-        color: '#222',
-        marginBottom: 4,
-    },
-    instructorRole: {
-        fontSize: 14,
-        fontFamily: 'Nunito_500Medium',
-        color: '#666',
-    },
     lessonsContainer: {
         paddingVertical: 10,
     },
@@ -1038,6 +1058,46 @@ const styles = StyleSheet.create({
         color: '#0070e0',
         fontSize: 14,
         fontFamily: 'Nunito_600SemiBold',
+    },
+    instructorCard: {
+        backgroundColor: '#f9f9f9',
+        borderRadius: 12,
+        padding: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 1,
+    },
+    instructorHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    instructorAvatar: {
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        marginRight: 15,
+    },
+    instructorInfo: {
+        flex: 1,
+    },
+    instructorName: {
+        fontSize: 16,
+        fontFamily: 'Nunito_700Bold',
+        color: '#222',
+        marginBottom: 4,
+    },
+    instructorRole: {
+        fontSize: 14,
+        fontFamily: 'Nunito_500Medium',
+        color: '#666',
+    },
+    emptyText: {
+        color: '#666',
+        fontSize: 14,
+        fontFamily: 'Nunito_500Medium',
+        textAlign: 'center',
     },
 });
 

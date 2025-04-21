@@ -32,6 +32,7 @@ const MentorProfileScreen = () => {
     const { user, loading: userLoading } = useUser();
     const [students, setStudents] = useState<any[]>([]);
     const [loadingStudents, setLoadingStudents] = useState(false);
+    const [studentCount, setStudentCount] = useState(0);
     
     // Rating form state
     const [rating, setRating] = useState(5);
@@ -136,40 +137,36 @@ const MentorProfileScreen = () => {
     };
 
     const fetchMentorStudents = async () => {
-        if (activeTab === 'students' && students.length === 0) {
-            setLoadingStudents(true);
-            try {
-                const accessToken = await AsyncStorage.getItem('access_token');
-                const refreshToken = await AsyncStorage.getItem('refresh_token');
-                
-                const response = await axios.get(`${URL_SERVER}/students/${mentorId}`, {
-                    headers: {
-                        'access-token': accessToken,
-                        'refresh-token': refreshToken
-                    }
-                });
-                console.log("Students response:", response.data);
-                
-                if (response.data.success) {
-                    setStudents(response.data.students);
+        setLoadingStudents(true);
+        try {
+            const accessToken = await AsyncStorage.getItem('access_token');
+            const refreshToken = await AsyncStorage.getItem('refresh_token');
+            
+            const response = await axios.get(`${URL_SERVER}/students/${mentorId}`, {
+                headers: {
+                    'access-token': accessToken,
+                    'refresh-token': refreshToken
                 }
-            } catch (err: any) {
-                console.error('Error fetching mentor students:', err);
-            } finally {
-                setLoadingStudents(false);
+            });
+            console.log("Students response:", response.data);
+            
+            if (response.data.success) {
+                setStudents(response.data.students);
+                setStudentCount(response.data.students.length);
             }
+        } catch (err: any) {
+            console.error('Error fetching mentor students:', err);
+        } finally {
+            setLoadingStudents(false);
         }
     };
 
     useEffect(() => {
         if (mentorId) {
             fetchMentorDetails();
+            fetchMentorStudents();
         }
     }, [mentorId]);
-
-    useEffect(() => {
-        fetchMentorStudents();
-    }, [activeTab]);
 
     if (!fontsLoaded && !fontError) {
         return null;
@@ -236,18 +233,28 @@ const MentorProfileScreen = () => {
             </View>
         </View>
     );
-    
+//     <View style={{width: wp(90), marginTop: 10, marginBottom: 10}} key={course._id}>
+//     <CourseCard item={course} isHorizontal={true}/>
+// </View>
+{/* <CourseCard item={item} isHorizontal={true}/> */}
     const renderCoursesTab = () => (
         <View style={styles.tabContent}>
             {mentor.courses?.length > 0 ? (
                 <FlatList
                     data={mentor.courses}
                     keyExtractor={(item) => item._id}
-                    renderItem={({ item }) => <CourseCard item={item} />}
+                    renderItem={({ item }) => (
+                        <View style={styles.courseItemContainer}>
+                            <CourseCard item={item} isHorizontal={true}/>
+                        </View>
+                    )}
                     contentContainerStyle={styles.courseList}
+                    showsVerticalScrollIndicator={false}
+                    ItemSeparatorComponent={() => <View style={styles.courseSeparator} />}
                 />
             ) : (
                 <View style={styles.emptyContainer}>
+                    <Ionicons name="book-outline" size={60} color="#ccc" />
                     <Text style={styles.emptyText}>Mentor chưa có khóa học nào</Text>
                 </View>
             )}
@@ -337,13 +344,13 @@ const MentorProfileScreen = () => {
                                         <Image 
                                             source={{ 
                                                 uri: user?.avatar?.url 
-                                                    ? `${URL_IMAGES}/${user.avatar.url}` 
+                                                    ? `${URL_IMAGES}/${item.user.avatar.url}` 
                                                     : `https://ui-avatars.com/api/?name=${encodeURIComponent(item.user?.name || 'User')}` 
                                             }} 
                                             style={styles.reviewAvatar} 
                                         />
                                         <View>
-                                            <Text style={styles.reviewName}>{user?.name || 'Người dùng ẩn danh'}</Text>
+                                            <Text style={styles.reviewName}>{item.user?.name || 'Người dùng ẩn danh'}</Text>
                                             <Text style={styles.reviewDate}>
                                                 {new Date(item.createdAt).toLocaleDateString('vi-VN')}
                                             </Text>
@@ -439,8 +446,8 @@ const MentorProfileScreen = () => {
                     
                     <View style={styles.statsContainer}>
                         <View style={styles.statItem}>
-                            <Text style={styles.statValue}>{mentor.experience}</Text>
-                            <Text style={styles.statLabel}>Năm kinh nghiệm</Text>
+                            <Text style={styles.statValue}>{studentCount}</Text>
+                            <Text style={styles.statLabel}>Học viên</Text>
                         </View>
                         <View style={styles.statDivider} />
                         <View style={styles.statItem}>
@@ -598,13 +605,13 @@ const styles = StyleSheet.create({
     },
     statValue: {
         fontFamily: 'Raleway_700Bold',
-        fontSize: 18,
+        fontSize: 24,
         color: '#2467EC',
         marginBottom: 4,
     },
     statLabel: {
         fontFamily: 'Nunito_500Medium',
-        fontSize: 12,
+        fontSize: 14,
         color: '#666',
     },
     tabBar: {
@@ -692,6 +699,13 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#555',
         marginLeft: 10,
+    },
+    courseItemContainer: {
+        marginHorizontal: 5,
+        marginVertical: 5,
+    },
+    courseSeparator: {
+        height: 15,
     },
     courseList: {
         paddingBottom: 20,

@@ -48,6 +48,7 @@ type PrerequisiteType = {
 };
 
 type CoursesType = {
+    mentor: any;
     _id: any;
     name: string;
     description: string;

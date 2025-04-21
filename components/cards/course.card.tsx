@@ -434,7 +434,7 @@ const styles = StyleSheet.create({
     },
     horizontalContentContainer: {
         padding: 12,
-        height: 150,
+        height: 160,
     },
     titleContainer: {
         marginBottom: 8,
