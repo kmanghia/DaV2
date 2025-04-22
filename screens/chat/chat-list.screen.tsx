@@ -71,6 +71,11 @@ const ChatListScreen = () => {
   useEffect(() => {
     const getUserData = async () => {
       const storedUserId = await AsyncStorage.getItem('user_id');
+      if (storedUserId) {
+        // Lưu vào global state để các màn hình khác sử dụng
+        (global as any).userId = storedUserId;
+        console.log('Set global userId in chat-list:', storedUserId);
+      }
       setUserId(storedUserId);
       loadChats();
     };
@@ -89,12 +94,14 @@ const ChatListScreen = () => {
         return;
       }
       
-      const response = await axios.get(`${URL_SERVER}/chats`, {
+      console.log('Calling chats API...');
+      const response = await axios.get(`${URL_SERVER}/chat/all`, {
         headers: {
           'access-token': accessToken,
           'refresh-token': refreshToken
         }
       });
+      console.log('Chats API response:', response.data);
 
       if (!response || !response.data) {
         console.error('Response is null or missing data');

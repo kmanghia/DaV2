@@ -124,38 +124,14 @@ const SignInScreen = () => {
                 });
                 AsyncStorage.setItem("access_token", response.data.accessToken);
                 AsyncStorage.setItem("refresh_token", response.data.refreshToken);
+                // Save user ID to AsyncStorage
+                if (response.data.user && response.data.user._id) {
+                    AsyncStorage.setItem("user_id", response.data.user._id);
+                    // Also update global state if used
+                    (global as any).userId = response.data.user._id;
+                    console.log("User ID saved:", response.data.user._id);
+                }
                 router.push("/(tabs)");
-                // await AsyncStorage.setItem("activation_login_token", response.data.activationToken);
-                 // Tạo body dữ liệu cho POST request
-            // const body = JSON.stringify({
-            //     email: email,
-            //     password: password
-            // });
-
-            // // Gửi yêu cầu với fetch và SSL Pinning
-            // const response = await fetch(`${URL_SERVER}/login`, {
-            //     method: "POST",
-            //     timeoutInterval: 5000,  // Thời gian timeout 5 giây
-            //     body: body,
-            //     sslPinning: {
-            //         certs: ["cer"],  // Tên chứng chỉ đã thêm vào thư mục assets
-            //     },
-            //     headers: {
-            //         'Content-Type': 'application/json',
-            //         'Accept': 'application/json; charset=utf-8',
-            //         'Access-Control-Allow-Origin': '*',
-            //         'e_platform': 'mobile',
-            //     }
-            // });
-
-            // // Kiểm tra phản hồi và xử lý
-            // const data = await response.json();
-                // Toast.show(response.data.message, {
-                //     type: 'success'
-                // });
-
-                // router.push("/(routes)/logincode");
-                // router.push("/(tabs)");
             }
         } catch (error) {
             console.log(error);

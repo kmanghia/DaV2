@@ -83,10 +83,19 @@ const LoginCodeScreen = () => {
                 activation_code: otp
             });
             await AsyncStorage.setItem("access_token", response.data.accessToken);
-                await AsyncStorage.setItem("refresh_token", response.data.refreshToken);
-                Toast.show("Đăng nhập thành công", {
-                    type: "success"
-                });
+            await AsyncStorage.setItem("refresh_token", response.data.refreshToken);
+            
+            // Save user ID to AsyncStorage
+            if (response.data.user && response.data.user._id) {
+                await AsyncStorage.setItem("user_id", response.data.user._id);
+                // Also update global state if used
+                (global as any).userId = response.data.user._id;
+                console.log("User ID saved:", response.data.user._id);
+            }
+            
+            Toast.show("Đăng nhập thành công", {
+                type: "success"
+            });
             Toast.show("Tài khoản của bạn đã được xác thực thành công!", {
                 type: "success"
             });

@@ -43,6 +43,24 @@ interface ChatParticipant {
   };
 }
 
+interface MentorInfo {
+  _id: string;
+  user: {
+    _id: string;
+    name: string;
+    email?: string;
+    avatar?: {
+      url: string;
+    };
+  };
+  reviews?: any[];
+  courses?: any[];
+  bio?: string;
+  specialization?: string[];
+  experience?: number;
+  status?: string;
+}
+
 interface ChatDetails {
   _id: string;
   name?: string;
@@ -62,19 +80,55 @@ interface ChatDetails {
   messages: Message[];
   createdAt: string;
   updatedAt: string;
+  mentorInfo?: MentorInfo;
 }
 
-const ChatDetailScreen = () => {
-  const { chatId } = useLocalSearchParams();
+interface ChatDetailScreenProps {
+  chatId?: string;
+}
+
+const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
+  const params = useLocalSearchParams();
+  
+  // Log toàn bộ params để debug
+  console.log('All params from useLocalSearchParams:', params);
+  console.log('Prop chatId:', propChatId);
+  
+  // Xử lý nhiều trường hợp khác nhau cho ID
+  let chatId: string | undefined = propChatId;
+  
+  if (!chatId && params.id) {
+    if (typeof params.id === 'string') {
+      chatId = params.id;
+    } else if (Array.isArray(params.id) && params.id.length > 0) {
+      chatId = String(params.id[0]);
+    } else {
+      chatId = String(params.id);
+    }
+  } else if (!chatId && params.chatId) {
+    // Check alternative param name
+    if (typeof params.chatId === 'string') {
+      chatId = params.chatId;
+    } else if (Array.isArray(params.chatId) && params.chatId.length > 0) {
+      chatId = String(params.chatId[0]);
+    } else {
+      chatId = String(params.chatId);
+    }
+  }
+  
+  console.log('Final chat ID to use:', chatId, typeof chatId);
+  
   const [chat, setChat] = useState<ChatDetails | null>(null);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [typing, setTyping] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState<string | null>(null);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   
   const flatListRef = useRef<FlatList | null>(null);
   const socketRef = useRef<any>(null);
@@ -90,30 +144,94 @@ const ChatDetailScreen = () => {
   });
 
   useEffect(() => {
-    const getTokens = async () => {
-      const access = await AsyncStorage.getItem('access_token');
-      const refresh = await AsyncStorage.getItem('refresh_token');
-      const user = await AsyncStorage.getItem('user_id');
-      
-      setAccessToken(access);
-      setRefreshToken(refresh);
-      setUserId(user);
+    console.log('Running main useEffect, chatId:', chatId);
+    
+    // Kiểm tra nếu có userId trong global state
+    if ((global as any).userId) {
+      console.log('Found userId in global state:', (global as any).userId);
+    } else {
+      console.log('No userId in global state, will retrieve from AsyncStorage');
+    }
+    
+    const setupChat = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Lấy token từ AsyncStorage
+        const access = await AsyncStorage.getItem('access_token');
+        const refresh = await AsyncStorage.getItem('refresh_token');
+        let user = await AsyncStorage.getItem('user_id');
+        
+        // Sử dụng userId từ global state nếu có
+        if ((global as any).userId && !user) {
+          user = (global as any).userId;
+          console.log('Using userId from global state:', user);
+        } else if (user) {
+          // Lưu vào global state để sử dụng sau này
+          (global as any).userId = user;
+          console.log('Updated global userId from AsyncStorage:', user);
+        } else {
+          // Retry getting user ID directly from token if possible
+          user = await getUserIdFromToken(access);
+          if (user) {
+            console.log('Retrieved user ID from token:', user);
+            AsyncStorage.setItem('user_id', user);
+            (global as any).userId = user;
+          }
+        }
+        
+        console.log('Auth info:', { 
+          hasAccessToken: !!access, 
+          hasRefreshToken: !!refresh, 
+          hasUserId: !!user,
+          hasChatId: !!chatId
+        });
+        
+        setAccessToken(access);
+        setRefreshToken(refresh);
+        setUserId(user);
 
-      if (access && refresh && user) {
-        loadChat(access, refresh);
-        initializeSocket(user);
+        if (access && refresh && user && chatId) {
+          await loadChat(access, refresh);
+          initializeSocket(user);
+        } else {
+          console.error('Missing required values for chat');
+          
+          // Hiển thị thông báo lỗi cụ thể hơn
+          if (!access || !refresh) {
+            setError('Vui lòng đăng nhập lại để tiếp tục');
+          } else if (!user) {
+            setError('Không tìm thấy thông tin người dùng');
+          } else if (!chatId) {
+            setError('Không tìm thấy ID hội thoại');
+          } else {
+            setError('Thiếu thông tin xác thực hoặc ID hội thoại');
+          }
+        }
+      } catch (err) {
+        console.error('Error in setupChat:', err);
+        setError('Lỗi khi cài đặt hội thoại');
+      } finally {
+        setLoading(false);
+        setInitialLoadComplete(true);
       }
     };
 
-    getTokens();
+    setupChat();
 
     // Cleanup on unmount
     return () => {
+      console.log('Component unmounting, cleaning up resources');
       if (socketRef.current) {
+        console.log('Disconnecting socket');
         socketRef.current.disconnect();
+        socketRef.current = null;
       }
       if (typingTimeoutRef.current) {
+        console.log('Clearing typing timeout');
         clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = null;
       }
     };
   }, [chatId]);
@@ -122,15 +240,30 @@ const ChatDetailScreen = () => {
     try {
       if (!socketRef.current) {
         console.log('Initializing socket connection...');
-        const socketUrl = URL_SERVER || 'http://localhost:8000';
+        // Loại bỏ api/v1 khỏi URL server để có đúng URL socket
+        const socketUrl = URL_SERVER.replace('/api/v1', '');
+        console.log('Socket URL:', socketUrl);
+        
+        // Kiểm tra cấu trúc URL hợp lệ
+        if (!socketUrl.startsWith('http')) {
+          console.error('Invalid socket URL:', socketUrl);
+          setError('URL kết nối socket không hợp lệ');
+          return;
+        }
+        
+        console.log('Connecting to socket with userId:', user);
         socketRef.current = io(socketUrl, {
           transports: ['websocket'],
-          query: { userId: user }
+          query: { userId: user },
+          reconnection: true,
+          reconnectionAttempts: 5,
+          reconnectionDelay: 1000,
+          timeout: 10000
         });
 
         // Socket connection events
         socketRef.current.on('connect', () => {
-          console.log('Socket connected');
+          console.log('Socket connected successfully');
           socketRef.current.emit('authenticate', user);
           
           if (chatId) {
@@ -145,23 +278,115 @@ const ChatDetailScreen = () => {
 
         socketRef.current.on('connect_error', (error: any) => {
           console.error('Socket connection error:', error);
+          setError('Không thể kết nối đến server chat');
         });
 
         // Chat specific events
         socketRef.current.on('newMessage', (data: any) => {
           console.log('New message received:', data);
+          
+          // Log message structure to debug
+          console.log('Message sender structure:', typeof data.message.sender, JSON.stringify(data.message.sender, null, 2));
+          
           if (data.chatId === chatId) {
+            // Make sure message structure is valid
+            if (!data.message || typeof data.message !== 'object') {
+              console.error('Invalid message format received:', data.message);
+              return;
+            }
+            
+            // Fix: Ensure sender is an object, not a string
+            if (typeof data.message.sender === 'string') {
+              // If sender is just an ID string, convert it to an object
+              const senderId = data.message.sender;
+              data.message.sender = { _id: senderId };
+              console.log('Converted string sender to object:', data.message.sender);
+            }
+            
             setChat(prevChat => {
               if (!prevChat) return null;
               
+              // Check if the sender is already in participants
+              const senderExists = prevChat.participants.some(
+                p => p._id === data.message.sender._id
+              );
+              
+              // Get mentor user ID if available
+              const mentorUserId = typeof prevChat.mentorId === 'object' ? 
+                prevChat.mentorId?.user : 
+                null;
+              
+              // If not in participants and this is likely a mentor message
+              if (!senderExists && prevChat.mentorId) {
+                console.log('Message from unrecognized sender detected - likely a mentor');
+                
+                // Check if we can confirm it's from mentor
+                const isFromMentor = mentorUserId && mentorUserId === data.message.sender._id;
+                console.log('Is confirmed from mentor:', isFromMentor);
+                
+                // Use mentor info if available
+                if (prevChat.mentorInfo?.user && !data.message.sender.name) {
+                  data.message.sender.name = prevChat.mentorInfo.user.name || 'User';
+                } else if (!data.message.sender.name) {
+                  data.message.sender.name = 'User';
+                }
+                
+                // If this is the first message from a mentor and we don't have mentor info yet,
+                // try to fetch it
+                if (!prevChat.mentorInfo && accessToken && refreshToken) {
+                  // Use self-invoking async function to fetch mentor info
+                  (async () => {
+                    try {
+                      // Extract mentorId correctly
+                      const mentorIdValue = typeof prevChat.mentorId === 'object' ? 
+                        prevChat.mentorId._id : 
+                        prevChat.mentorId;
+                      
+                      console.log('Attempting to fetch mentor info after message receipt:', mentorIdValue);
+                      
+                      const mentorInfo = await fetchMentorInfo(
+                        mentorIdValue, 
+                        accessToken, 
+                        refreshToken
+                      );
+                      
+                      if (mentorInfo) {
+                        console.log('Fetched mentor info after receiving message:', mentorInfo.user?.name || "Unknown mentor");
+                        setChat(currentChat => {
+                          if (!currentChat) return null;
+                          return {...currentChat, mentorInfo};
+                        });
+                      }
+                    } catch (err) {
+                      console.error('Error fetching mentor info after message:', err);
+                    }
+                  })();
+                }
+              }
+              
+              // Ensure message has all required fields to prevent errors
+              const messageToAdd = {
+                ...data.message,
+                sender: {
+                  _id: typeof data.message.sender === 'string' ? data.message.sender : data.message.sender._id,
+                  name: typeof data.message.sender === 'string' ? 'User' : (data.message.sender.name || 'User')
+                },
+                readBy: Array.isArray(data.message.readBy) ? data.message.readBy : []
+              };
+              
               // Add the new message to the chat
-              const updatedMessages = [...prevChat.messages, data.message];
+              const updatedMessages = [...prevChat.messages, messageToAdd];
               return { ...prevChat, messages: updatedMessages };
             });
 
-            // Mark message as read
-            if (data.message.sender._id !== user) {
-              markMessageAsRead(data.message._id);
+            // Mark message as read if we're not the sender
+            const messageId = data.message._id;
+            const senderId = typeof data.message.sender === 'string' ? 
+              data.message.sender : 
+              data.message.sender._id;
+              
+            if (senderId !== user && messageId) {
+              markMessageAsRead(messageId);
             }
           }
         });
@@ -200,37 +425,162 @@ const ChatDetailScreen = () => {
             });
           }
         });
+      } else {
+        console.log('Socket already initialized');
+        
+        // Ensure we're in the right chat room
+        if (chatId) {
+          console.log(`Re-joining chat room: ${chatId}`);
+          socketRef.current.emit('joinChat', chatId);
+        }
       }
     } catch (error) {
       console.error('Error initializing socket:', error);
+      setError('Lỗi khi khởi tạo kết nối chat');
     }
   };
 
   const loadChat = async (access: string, refresh: string) => {
     try {
+      if (!chatId) {
+        console.error('Chat ID is missing or invalid');
+        setError('Chat ID is missing');
+        setLoading(false);
+        return;
+      }
+      
       setLoading(true);
+      setError(null);
+      
+      console.log(`Loading chat with ID: ${chatId}`);
+      console.log(`API URL: ${URL_SERVER}/chat/${chatId}`);
       
       const response = await axios.get(`${URL_SERVER}/chat/${chatId}`, {
         headers: {
           'access-token': access,
           'refresh-token': refresh
         }
+      }).catch(error => {
+        if (error.response) {
+          console.error('API response error:', error.response.status, error.response.data);
+          
+          if (error.response.status === 404) {
+            setError('Chat không tồn tại');
+          } else if (error.response.status === 403) {
+            setError('Bạn không có quyền xem hội thoại này');
+          } else {
+            setError('Lỗi khi tải hội thoại');
+          }
+        } else if (error.request) {
+          console.error('No response from server:', error.request);
+          setError('Không thể kết nối đến máy chủ');
+        } else {
+          console.error('Error setting up request:', error.message);
+          setError('Lỗi kết nối');
+        }
+        throw error;
       });
       
-      if (response.data.success) {
-        setChat(response.data.chat);
+      console.log('API Response:', JSON.stringify(response.data, null, 2));
+      
+      if (response && response.data && response.data.success) {
+        console.log('Chat loaded successfully');
+        console.log('Chat data structure:', Object.keys(response.data.chat));
+        
+        if (!response.data.chat) {
+          setError('Dữ liệu chat không hợp lệ');
+          setLoading(false);
+          return;
+        }
+        
+        // Kiểm tra cấu trúc dữ liệu
+        if (!response.data.chat.messages) {
+          console.error('Chat object does not contain messages array');
+          setError('Dữ liệu chat không chứa tin nhắn');
+          setLoading(false);
+          return;
+        }
+        
+        // Get the chat data
+        const chatData = response.data.chat;
+        
+        // If this chat has a mentor, fetch the mentor details
+        // Handle both cases: when mentorId is an object with _id or when it's just a string ID
+        const mentorIdValue = typeof chatData.mentorId === 'object' ? 
+          chatData.mentorId?._id : 
+          chatData.mentorId;
+          
+        if (mentorIdValue) {
+          try {
+            console.log('DEBUG: Trying to fetch mentor info for mentor ID:', mentorIdValue);
+            console.log('DEBUG: Raw mentorId value is:', JSON.stringify(chatData.mentorId, null, 2));
+            
+            const mentorInfo = await fetchMentorInfo(mentorIdValue, access, refresh);
+            if (mentorInfo) {
+              chatData.mentorInfo = mentorInfo;
+              console.log('Added mentor info to chat:', mentorInfo.user?.name || "Unknown mentor");
+              console.log('Full mentor info:', JSON.stringify(mentorInfo, null, 2));
+            } else {
+              console.log('DEBUG: fetchMentorInfo returned null');
+            }
+          } catch (err) {
+            console.error('Error fetching mentor info:', err);
+            // Continue without mentor info
+          }
+        } else {
+          console.log('DEBUG: No mentorId found in chat data');
+          console.log('DEBUG: Chat data structure:', Object.keys(chatData));
+        }
+        
+        setChat(chatData);
         
         // Scroll to bottom when chat loads
         setTimeout(() => {
-          if (flatListRef.current && response.data.chat.messages.length > 0) {
+          if (flatListRef.current && chatData.messages.length > 0) {
             flatListRef.current.scrollToEnd({ animated: false });
           }
         }, 100);
+      } else {
+        console.error('Response not successful:', response?.data);
+        setError('Không thể tải hội thoại');
       }
     } catch (error) {
       console.error('Error loading chat:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Helper function to fetch mentor information
+  const fetchMentorInfo = async (mentorId: string, access: string, refresh: string): Promise<MentorInfo | null> => {
+    try {
+      console.log(`Fetching mentor info for ID: ${mentorId}`);
+      console.log(`Using URL: ${URL_SERVER}/${mentorId}`);
+      
+      const response = await axios.get(`${URL_SERVER}/${mentorId}`, {
+        headers: {
+          'access-token': access,
+          'refresh-token': refresh
+        }
+      });
+      
+      console.log('Mentor API response status:', response.status);
+      console.log('Mentor API response data:', JSON.stringify(response.data, null, 2));
+      
+      if (response.data && response.data.success && response.data.mentor) {
+        console.log('Mentor info fetched successfully:', response.data.mentor.user?.name || "Unknown");
+        return response.data.mentor;
+      } else {
+        console.log('Mentor API returned success but no mentor data found');
+      }
+      return null;
+    } catch (error: any) {
+      console.error('Error fetching mentor info:', error.message);
+      if (error.response) {
+        console.error('Error response status:', error.response.status);
+        console.error('Error response data:', error.response.data);
+      }
+      return null;
     }
   };
 
@@ -300,7 +650,12 @@ const ChatDetailScreen = () => {
   };
 
   const markMessageAsRead = (messageId: string) => {
-    if (!socketRef.current || !userId) return;
+    if (!socketRef.current || !userId || !messageId) {
+      console.log('Cannot mark message as read - missing socket, userId, or messageId');
+      return;
+    }
+    
+    console.log('Marking message as read:', messageId);
     
     socketRef.current.emit('markAsRead', {
       chatId,
@@ -310,6 +665,19 @@ const ChatDetailScreen = () => {
   };
 
   const renderMessage = ({ item }: { item: Message }) => {
+    // Safety check - ensure item is a valid message object
+    if (!item || typeof item !== 'object' || !item.sender) {
+      console.error('Invalid message item:', item);
+      return null;
+    }
+    
+    // Ensure sender is an object, not a string
+    if (typeof item.sender === 'string') {
+      // Just log this case, we shouldn't modify the item directly here as it's from state
+      console.error('Message with string sender detected in renderMessage:', item);
+      return null;
+    }
+    
     const isOwnMessage = item.sender._id === userId;
     const readByOthers = chat?.participants
       .filter(p => p._id !== userId)
@@ -321,6 +689,67 @@ const ChatDetailScreen = () => {
     const isToday = messageDate.toDateString() === now.toDateString();
     const timeString = messageDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
     
+    // Find sender information - check if it's a mentor or regular participant
+    const getSenderName = () => {
+      // First try to find in participants
+      const participantSender = chat?.participants.find(p => p._id === item.sender._id);
+      if (participantSender?.name) return participantSender.name;
+      
+      // Get mentor user ID if available
+      const mentorUserId = typeof chat?.mentorId === 'object' ? 
+        chat?.mentorId?.user : 
+        null; // We don't have user ID if mentorId is just a string ID
+      
+      // If not found in participants and there's a mentorInfo object
+      if (chat?.mentorInfo?.user) {
+        // Check if sender matches mentor user (if we have user ID)
+        if (mentorUserId && mentorUserId === item.sender._id) {
+          return chat.mentorInfo.user.name || "User";
+        }
+        
+        // If we don't have mentorId.user to compare, just use mentorInfo name
+        // as a fallback for unrecognized senders (assuming they're the mentor)
+        if (!participantSender) {
+          return chat.mentorInfo.user.name || "Mentor";
+        }
+      }
+      
+      // If it's a course chat and we think sender might be mentor
+      if (chat?.chatType === 'course' && !participantSender) {
+        return "Mentor"; // Default if we don't have the mentor name
+      }
+      
+      // If we have the sender name in the message itself
+      if (item.sender.name) return item.sender.name;
+      
+      // Fallback
+      return 'User';
+    };
+    
+    // Get avatar URL for sender
+    const getSenderAvatar = () => {
+      // First check if sender is a regular participant
+      const participantSender = chat?.participants.find(p => p._id === item.sender._id);
+      if (participantSender?.avatar?.url) {
+        return `${URL_IMAGES}/${participantSender.avatar.url}`;
+      }
+      
+      // Get mentor user ID if available
+      const mentorUserId = typeof chat?.mentorId === 'object' ? 
+        chat?.mentorId?.user : 
+        null;
+      
+      // If sender is a mentor and we have mentor info
+      if (chat?.mentorInfo?.user && ((mentorUserId && mentorUserId === item.sender._id) || !participantSender)) {
+        if (chat.mentorInfo.user.avatar?.url) {
+          return `${URL_IMAGES}/${chat.mentorInfo.user.avatar.url}`;
+        }
+      }
+      
+      // Default avatar
+      return `https://ui-avatars.com/api/?name=${encodeURIComponent(getSenderName())}&background=0D8ABC&color=fff`;
+    };
+    
     return (
       <View style={[
         styles.messageContainer,
@@ -329,11 +758,7 @@ const ChatDetailScreen = () => {
         {!isOwnMessage && (
           <View style={styles.avatarContainer}>
             <Image
-              source={{
-                uri: chat?.participants.find(p => p._id === item.sender._id)?.avatar?.url ?
-                  `${URL_IMAGES}/${chat?.participants.find(p => p._id === item.sender._id)?.avatar?.url}` :
-                  `https://ui-avatars.com/api/?name=${encodeURIComponent(item.sender.name || 'User')}&background=0D8ABC&color=fff`
-              }}
+              source={{ uri: getSenderAvatar() }}
               style={styles.avatar}
             />
           </View>
@@ -344,7 +769,7 @@ const ChatDetailScreen = () => {
         ]}>
           {!isOwnMessage && chat?.chatType === 'course' && (
             <Text style={styles.senderName}>
-              {chat.participants.find(p => p._id === item.sender._id)?.name || 'Unknown User'}
+              {getSenderName()}
             </Text>
           )}
           <Text style={[
@@ -380,9 +805,29 @@ const ChatDetailScreen = () => {
       if (chat.chatType === 'private') {
         // For private chats, show the other participant's name
         const otherParticipant = chat.participants.find(p => p._id !== userId);
-        title = otherParticipant?.name || 'Unknown User';
+        
+        // Get mentor user ID if available
+        const mentorUserId = typeof chat.mentorId === 'object' ? 
+          chat.mentorId?.user : 
+          null;
+        
+        // Handle case where the other participant might be a mentor
+        if (otherParticipant) {
+          title = otherParticipant.name || 'User';
+          avatarUrl = otherParticipant.avatar?.url || '';
+        } else if (mentorUserId || (chat.mentorId && !otherParticipant)) {
+          // If the other participant is not found but there's a mentor
+          if (chat.mentorInfo?.user) {
+            // Use mentorInfo if available
+            title = chat.mentorInfo.user.name || 'Mentor';
+            avatarUrl = chat.mentorInfo.user.avatar?.url || '';
+          } else {
+            title = 'Mentor';
+            // No avatar URL 
+          }
+        }
+        
         subtitle = 'Direct message';
-        avatarUrl = otherParticipant?.avatar?.url || '';
       } else {
         // For course chats, show the course name
         title = chat.name || chat.courseId?.name || 'Course Chat';
@@ -390,6 +835,40 @@ const ChatDetailScreen = () => {
         avatarUrl = chat.courseId?.thumbnail?.url || '';
       }
     }
+    
+    // DEBUG: Test function to fetch mentor info manually
+    const testFetchMentor = async () => {
+      // Get the mentorId value whether it's an object or a string
+      const mentorIdValue = chat?.mentorId ? 
+        (typeof chat.mentorId === 'object' ? chat.mentorId._id : chat.mentorId) : 
+        null;
+      
+      if (mentorIdValue && accessToken && refreshToken) {
+        console.log("DEBUG: Manually testing mentor fetch for:", mentorIdValue);
+        console.log("DEBUG: Raw mentorId data:", JSON.stringify(chat?.mentorId, null, 2));
+        
+        const mentorInfo = await fetchMentorInfo(mentorIdValue, accessToken, refreshToken);
+        console.log("DEBUG: Manual test result:", mentorInfo ? "SUCCESS" : "FAILED");
+        if (mentorInfo) {
+          console.log("DEBUG: Fetched mentor info:", JSON.stringify(mentorInfo, null, 2));
+          console.log("DEBUG: Mentor user info:", JSON.stringify(mentorInfo.user, null, 2));
+          
+          // Update the chat with mentor info
+          setChat(currentChat => {
+            if (!currentChat) return null;
+            return {...currentChat, mentorInfo};
+          });
+          
+          alert(`Mentor info fetched successfully!\nName: ${mentorInfo.user?.name || "Unknown"}\nEmail: ${mentorInfo.user?.email || "N/A"}`);
+        } else {
+          alert("Failed to fetch mentor info");
+        }
+      } else {
+        console.log("DEBUG: Cannot test - missing mentorId or tokens");
+        console.log("DEBUG: Chat object structure:", chat ? Object.keys(chat) : "No chat data");
+        alert("Cannot test - missing mentorId or tokens");
+      }
+    };
     
     return (
       <View style={styles.header}>
@@ -430,6 +909,13 @@ const ChatDetailScreen = () => {
           </View>
         </View>
         
+        {/* DEBUG: Temporary button to test mentor info fetching */}
+        <TouchableOpacity 
+          style={{...styles.infoButton, backgroundColor: '#ff9800'}} 
+          onPress={testFetchMentor}>
+          <Text style={{color: 'white', fontSize: 10}}>Test</Text>
+        </TouchableOpacity>
+        
         {chat?.chatType === 'course' && (
           <TouchableOpacity style={styles.infoButton}>
             <Ionicons name="information-circle-outline" size={24} color="#0070e0" />
@@ -462,11 +948,45 @@ const ChatDetailScreen = () => {
   };
 
   const renderMessageList = () => {
-    if (!chat) return null;
+    if (!chat) {
+      console.log('No chat data available for rendering');
+      return null;
+    }
+    
+    console.log('Rendering message list, messages count:', chat.messages ? chat.messages.length : 0);
+    
+    // Kiểm tra nếu không có messages hoặc messages không phải là một mảng
+    if (!Array.isArray(chat.messages) || chat.messages.length === 0) {
+      return (
+        <View style={styles.emptyChat}>
+          <Ionicons name="chatbubble-ellipses-outline" size={70} color="#ddd" />
+          <Text style={styles.emptyChatText}>Chưa có tin nhắn nào</Text>
+          <Text style={styles.emptyChatSubtext}>Hãy bắt đầu cuộc trò chuyện</Text>
+        </View>
+      );
+    }
+    
+    // Filter out invalid messages to prevent rendering errors
+    const validMessages = chat.messages.filter(message => {
+      // Check if the message has the minimum required structure
+      if (!message || typeof message !== 'object') return false;
+      if (!message.sender || !message._id) return false;
+      
+      // Convert string senders to objects
+      if (typeof message.sender === 'string') {
+        console.log('Found message with string sender, converting to object:', message._id);
+        // Create a new sender object
+        (message as any).sender = { _id: message.sender };
+      }
+      
+      return true;
+    });
+    
+    console.log(`Found ${chat.messages.length - validMessages.length} invalid messages that will be skipped`);
     
     // Group messages by date
     const messagesByDate: {[key: string]: Message[]} = {};
-    chat.messages.forEach(message => {
+    validMessages.forEach(message => {
       const date = new Date(message.createdAt).toDateString();
       if (!messagesByDate[date]) {
         messagesByDate[date] = [];
@@ -485,6 +1005,8 @@ const ChatDetailScreen = () => {
       flattenedMessages.push(...messages);
     });
     
+    console.log('Flattened messages count:', flattenedMessages.length);
+    
     return (
       <FlatList
         ref={flatListRef}
@@ -502,13 +1024,51 @@ const ChatDetailScreen = () => {
             flatListRef.current.scrollToEnd({ animated: true });
           }
         }}
+        ListEmptyComponent={() => (
+          <View style={styles.emptyChat}>
+            <Ionicons name="chatbubble-ellipses-outline" size={70} color="#ddd" />
+            <Text style={styles.emptyChatText}>Chưa có tin nhắn nào</Text>
+            <Text style={styles.emptyChatSubtext}>Hãy bắt đầu cuộc trò chuyện</Text>
+          </View>
+        )}
       />
     );
+  };
+
+  // Helper function to get user ID from token if possible
+  const getUserIdFromToken = async (accessToken: string | null): Promise<string | null> => {
+    if (!accessToken) return null;
+    
+    try {
+      // Try to get user info from server
+      const response = await axios.get(`${URL_SERVER}/me`, {
+        headers: {
+          'access-token': accessToken
+        }
+      });
+      
+      if (response.data && response.data.user && response.data.user._id) {
+        return response.data.user._id;
+      }
+    } catch (error) {
+      console.error('Error retrieving user ID from token:', error);
+    }
+    
+    return null;
   };
 
   if (!fontsLoaded && !fontError) {
     return null;
   }
+
+  console.log('Render state:', { 
+    chatId, 
+    hasChat: !!chat, 
+    loading, 
+    error,
+    userId, 
+    socketConnected: !!socketRef.current
+  });
 
   return (
     <SafeAreaView style={styles.container}>
@@ -519,7 +1079,37 @@ const ChatDetailScreen = () => {
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#0070e0" />
-          <Text style={styles.loadingText}>Loading conversation...</Text>
+          <Text style={styles.loadingText}>Đang tải hội thoại...</Text>
+        </View>
+      ) : error ? (
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle-outline" size={70} color="#ff3d71" />
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity 
+            style={styles.retryButton}
+            onPress={() => {
+              if (accessToken && refreshToken && userId) {
+                loadChat(accessToken, refreshToken);
+              }
+            }}
+          >
+            <Text style={styles.retryButtonText}>Thử lại</Text>
+          </TouchableOpacity>
+        </View>
+      ) : !chat ? (
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle-outline" size={70} color="#ff3d71" />
+          <Text style={styles.errorText}>Không tìm thấy dữ liệu hội thoại</Text>
+          <TouchableOpacity 
+            style={styles.retryButton}
+            onPress={() => {
+              if (accessToken && refreshToken && userId) {
+                loadChat(accessToken, refreshToken);
+              }
+            }}
+          >
+            <Text style={styles.retryButtonText}>Thử lại</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <KeyboardAvoidingView
@@ -532,7 +1122,7 @@ const ChatDetailScreen = () => {
           <View style={styles.inputContainer}>
             <TextInput
               style={styles.input}
-              placeholder="Type a message..."
+              placeholder="Nhập tin nhắn..."
               value={message}
               onChangeText={handleMessageChange}
               multiline
@@ -742,6 +1332,51 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     backgroundColor: '#e0e0e0',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    marginTop: 10,
+    fontSize: 16,
+    fontFamily: 'Nunito_500Medium',
+    color: '#666',
+    textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: 20,
+    backgroundColor: '#0070e0',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontFamily: 'Nunito_600SemiBold',
+    fontSize: 14,
+  },
+  emptyChat: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  emptyChatText: {
+    marginTop: 10,
+    fontSize: 16,
+    fontFamily: 'Nunito_500Medium',
+    color: '#666',
+    textAlign: 'center',
+  },
+  emptyChatSubtext: {
+    marginTop: 10,
+    fontSize: 12,
+    fontFamily: 'Nunito_400Regular',
+    color: '#999',
+    textAlign: 'center',
   },
 });
 
