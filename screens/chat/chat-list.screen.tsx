@@ -7,10 +7,14 @@ import {
   TouchableOpacity, 
   Image, 
   ActivityIndicator, 
-  RefreshControl
+  RefreshControl,
+  StatusBar as RNStatusBar,
+  Platform,
+  ImageBackground,
+  Dimensions
 } from 'react-native';
 import { router } from 'expo-router';
-import { FontAwesome, Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { FontAwesome, Ionicons, MaterialIcons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { URL_IMAGES, URL_SERVER } from '@/utils/url';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
@@ -19,6 +23,7 @@ import { Raleway_600SemiBold, Raleway_700Bold } from '@expo-google-fonts/raleway
 import { useFonts } from 'expo-font';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import { LinearGradient } from 'expo-linear-gradient';
 
 interface ChatPreview {
   _id: string;
@@ -285,52 +290,102 @@ const ChatListScreen = () => {
       <StatusBar style="dark" />
       
       <View style={styles.header}>
-        <Text style={styles.title}>Tin nhắn</Text>
-      </View>
-      
-      <View style={styles.tabContainer}>
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'all' && styles.activeTab]} 
-          onPress={() => setActiveTab('all')}
-        >
-          <Text style={[styles.tabText, activeTab === 'all' && styles.activeTabText]}>Tất cả</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'private' && styles.activeTab]} 
-          onPress={() => setActiveTab('private')}
-        >
-          <Text style={[styles.tabText, activeTab === 'private' && styles.activeTabText]}>Cá nhân</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'course' && styles.activeTab]} 
-          onPress={() => setActiveTab('course')}
-        >
-          <Text style={[styles.tabText, activeTab === 'course' && styles.activeTabText]}>Nhóm</Text>
-        </TouchableOpacity>
-      </View>
-      
-      {loading && !refreshing ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#0070e0" />
-          <Text style={styles.loadingText}>Đang tải tin nhắn...</Text>
+        <View style={styles.headerContent}>
+          <View style={styles.headerTopRow}>
+            <Text style={styles.title}>Tin nhắn</Text>
+            <View style={styles.headerActions}>
+              <TouchableOpacity style={styles.headerButton}>
+                <Feather name="edit" size={20} color="#666" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.headerButton}>
+                <Feather name="search" size={20} color="#666" />
+              </TouchableOpacity>
+            </View>
+          </View>
+          
+          <View style={styles.chatCountRow}>
+            <View style={styles.countItem}>
+              <Text style={styles.countNumber}>{privateChats.length + courseChats.length}</Text>
+              <Text style={styles.countLabel}>Tổng</Text>
+            </View>
+            <View style={styles.countDivider} />
+            <View style={styles.countItem}>
+              <Text style={styles.countNumber}>{privateChats.length}</Text>
+              <Text style={styles.countLabel}>Cá nhân</Text>
+            </View>
+            <View style={styles.countDivider} />
+            <View style={styles.countItem}>
+              <Text style={styles.countNumber}>{courseChats.length}</Text>
+              <Text style={styles.countLabel}>Nhóm</Text>
+            </View>
+          </View>
         </View>
-      ) : (
-        <FlatList
-          data={getFilteredChats()}
-          renderItem={renderChatItem}
-          keyExtractor={item => item._id}
-          ItemSeparatorComponent={renderSeparator}
-          contentContainerStyle={styles.listContent}
-          ListEmptyComponent={renderEmptyComponent}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={['#0070e0']}
+      </View>
+
+      <View style={styles.contentContainer}>
+        <View style={styles.tabsContainer}>
+          <TouchableOpacity 
+            style={[styles.tab, activeTab === 'all' && styles.activeTab]} 
+            onPress={() => setActiveTab('all')}
+          >
+            <MaterialCommunityIcons 
+              name="message-text-outline" 
+              size={18} 
+              color={activeTab === 'all' ? '#fff' : '#666'} 
+              style={styles.tabIcon}
             />
-          }
-        />
-      )}
+            <Text style={[styles.tabText, activeTab === 'all' && styles.activeTabText]}>Tất cả</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.tab, activeTab === 'private' && styles.activeTab]} 
+            onPress={() => setActiveTab('private')}
+          >
+            <MaterialCommunityIcons 
+              name="account-outline" 
+              size={18} 
+              color={activeTab === 'private' ? '#fff' : '#666'} 
+              style={styles.tabIcon}
+            />
+            <Text style={[styles.tabText, activeTab === 'private' && styles.activeTabText]}>Cá nhân</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.tab, activeTab === 'course' && styles.activeTab]} 
+            onPress={() => setActiveTab('course')}
+          >
+            <MaterialCommunityIcons 
+              name="account-group-outline" 
+              size={18} 
+              color={activeTab === 'course' ? '#fff' : '#666'} 
+              style={styles.tabIcon}
+            />
+            <Text style={[styles.tabText, activeTab === 'course' && styles.activeTabText]}>Nhóm</Text>
+          </TouchableOpacity>
+        </View>
+        
+        {loading && !refreshing ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#666" />
+            <Text style={styles.loadingText}>Đang tải tin nhắn...</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={getFilteredChats()}
+            renderItem={renderChatItem}
+            keyExtractor={item => item._id}
+            ItemSeparatorComponent={renderSeparator}
+            contentContainerStyle={styles.listContent}
+            ListEmptyComponent={renderEmptyComponent}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={['#666']}
+                tintColor="#666"
+              />
+            }
+          />
+        )}
+      </View>
     </SafeAreaView>
   );
 };
@@ -338,47 +393,109 @@ const ChatListScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: 'red',
+    marginTop: -50,
   },
   header: {
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    backgroundColor: '#fff',
+    
+    backgroundColor: '#f8f8f8',
+    paddingTop: Platform.OS === 'android' ? (RNStatusBar.currentHeight || 0) + 10 : 50,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
+    borderBottomColor: '#eaeaea',
+  },
+  headerContent: {
+    paddingTop: 10,
+    paddingBottom: 20,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginBottom: 20,
   },
   title: {
-    fontSize: 24,
+    fontSize: 26,
     fontFamily: 'Raleway_700Bold',
     color: '#333',
   },
-  tabContainer: {
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#eaeaea',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 12,
+  },
+  chatCountRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-evenly',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginTop: 5,
+  },
+  countItem: {
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  countNumber: {
+    fontSize: 24,
+    fontFamily: 'Nunito_700Bold',
+    color: '#333',
+  },
+  countLabel: {
+    fontSize: 13,
+    fontFamily: 'Nunito_600SemiBold',
+    color: '#666',
+    marginTop: 3,
+  },
+  countDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: '#ddd',
+  },
+  contentContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+    paddingTop: 70,
+  },
+  tabsContainer: {
     flexDirection: 'row',
     backgroundColor: '#fff',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderRadius: 10,
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+    position: 'absolute',
+    top: 15,
+    alignSelf: 'center',
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#eaeaea',
   },
   tab: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 8,
     paddingHorizontal: 16,
-    marginRight: 10,
-    borderRadius: 20,
+    marginHorizontal: 3,
+    borderRadius: 8,
     backgroundColor: '#f5f5f5',
   },
+  tabIcon: {
+    marginRight: 6,
+  },
   activeTab: {
-    backgroundColor: '#0070e0',
-    shadowColor: '#0070e0',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3,
+    backgroundColor: '#666',
   },
   tabText: {
     fontSize: 14,
@@ -390,6 +507,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Nunito_700Bold',
   },
   listContent: {
+    paddingTop: 10,
     paddingBottom: 20,
     flexGrow: 1,
   },
@@ -398,63 +516,68 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: '#fff',
     alignItems: 'center',
-    borderRadius: 0,
+    borderRadius: 8,
+    marginHorizontal: 16,
+    marginVertical: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+    borderWidth: 1,
+    borderColor: '#f0f0f0',
   },
   unreadChatItem: {
-    backgroundColor: '#f5f8ff',
-    borderLeftWidth: 4,
-    borderLeftColor: '#0070e0',
+    backgroundColor: '#f9f9f9',
+    borderLeftWidth: 3,
+    borderLeftColor: '#666',
   },
   avatarContainer: {
     position: 'relative',
     marginRight: 16,
   },
   avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#e1e1e1',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#eaeaea',
     borderWidth: 1,
-    borderColor: '#f0f0f0',
+    borderColor: '#ddd',
   },
   courseAvatarContainer: {
-    backgroundColor: '#0070e0',
+    backgroundColor: '#666',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 0,
   },
   courseAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
   },
   unreadBadge: {
     position: 'absolute',
-    right: -5,
-    top: -5,
+    right: -3,
+    top: -3,
     backgroundColor: '#FF3D71',
-    minWidth: 20,
-    height: 20,
-    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1,
-    elevation: 2,
     borderWidth: 1.5,
     borderColor: '#fff',
+    zIndex: 5,
   },
   unreadCount: {
     color: '#fff',
-    fontSize: 11,
+    fontSize: 10,
     fontFamily: 'Nunito_700Bold',
   },
   chatContent: {
     flex: 1,
-    height: 56,
+    height: 50,
     justifyContent: 'center',
   },
   chatHeader: {
@@ -470,13 +593,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   unreadChatName: {
-    color: '#0070e0',
+    color: '#333',
+    fontWeight: 'bold',
   },
   chatTime: {
     fontSize: 12,
     fontFamily: 'Nunito_400Regular',
     color: '#999',
     marginLeft: 8,
+    backgroundColor: '#f5f5f5',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
   chatFooter: {
     flexDirection: 'row',
@@ -490,6 +618,7 @@ const styles = StyleSheet.create({
   },
   subtitleIcon: {
     marginRight: 5,
+    color: '#666',
   },
   chatSubtitle: {
     fontSize: 14,
@@ -504,21 +633,21 @@ const styles = StyleSheet.create({
     opacity: 1,
   },
   chatTypeBadge: {
-    backgroundColor: '#E3F2FD',
+    backgroundColor: '#f0f0f0',
     paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingVertical: 3,
+    borderRadius: 4,
     marginLeft: 8,
+    borderWidth: 1,
+    borderColor: '#e5e5e5',
   },
   chatTypeText: {
     fontSize: 10,
     fontFamily: 'Nunito_600SemiBold',
-    color: '#0070e0',
+    color: '#666',
   },
   separator: {
-    height: 1,
-    backgroundColor: '#f0f0f0',
-    marginLeft: 72,
+    height: 0,
   },
   loadingContainer: {
     flex: 1,
@@ -541,18 +670,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     marginTop: 20,
     marginHorizontal: 20,
-    borderRadius: 16,
+    borderRadius: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
+    shadowRadius: 3,
+    elevation: 1,
+    borderWidth: 1,
+    borderColor: '#eaeaea',
   },
   emptyText: {
     marginTop: 20,
     fontSize: 18,
     fontFamily: 'Nunito_700Bold',
-    color: '#666',
+    color: '#555',
   },
   emptySubtext: {
     marginTop: 10,
