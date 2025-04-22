@@ -182,10 +182,14 @@ const ChatListScreen = () => {
       timeText = updatedAt.toLocaleDateString();
     }
     
+    // Determine if this chat has unread messages
+    const hasUnread = item.unreadCount && item.unreadCount > 0;
+    
     return (
       <TouchableOpacity 
-        style={styles.chatItem} 
+        style={[styles.chatItem, hasUnread ? styles.unreadChatItem : null]} 
         onPress={() => navigateToChat(item._id)}
+        activeOpacity={0.7}
       >
         <View style={styles.avatarContainer}>
           {item.chatType === 'private' ? (
@@ -209,10 +213,10 @@ const ChatListScreen = () => {
               )}
             </View>
           )}
-          {item.unreadCount && item.unreadCount > 0 && (
+          {hasUnread && (
             <View style={styles.unreadBadge}>
               <Text style={styles.unreadCount}>
-                {item.unreadCount > 99 ? '99+' : item.unreadCount}
+                {item.unreadCount! > 99 ? '99+' : item.unreadCount}
               </Text>
             </View>
           )}
@@ -220,7 +224,7 @@ const ChatListScreen = () => {
 
         <View style={styles.chatContent}>
           <View style={styles.chatHeader}>
-            <Text style={styles.chatName} numberOfLines={1}>{name}</Text>
+            <Text style={[styles.chatName, hasUnread ? styles.unreadChatName : null]} numberOfLines={1}>{name}</Text>
             <Text style={styles.chatTime}>{timeText}</Text>
           </View>
           <View style={styles.chatFooter}>
@@ -228,7 +232,7 @@ const ChatListScreen = () => {
               {item.chatType === 'course' && (
                 <FontAwesome name="users" size={12} color="#666" style={styles.subtitleIcon} />
               )}
-              <Text style={styles.chatSubtitle} numberOfLines={1}>
+              <Text style={[styles.chatSubtitle, hasUnread ? styles.unreadChatSubtitle : null]} numberOfLines={1}>
                 {item.lastMessage ? item.lastMessage.content : subtitle}
               </Text>
             </View>
@@ -247,7 +251,7 @@ const ChatListScreen = () => {
 
   const renderEmptyComponent = () => (
     <View style={styles.emptyContainer}>
-      <Ionicons name="chatbubble-ellipses-outline" size={70} color="#ddd" />
+      <Ionicons name="chatbubble-ellipses-outline" size={80} color="#e0e0e0" />
       <Text style={styles.emptyText}>Chưa có tin nhắn nào</Text>
       <Text style={styles.emptySubtext}>
         {activeTab === 'private' 
@@ -349,7 +353,7 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
   },
   title: {
-    fontSize: 22,
+    fontSize: 24,
     fontFamily: 'Raleway_700Bold',
     color: '#333',
   },
@@ -364,12 +368,17 @@ const styles = StyleSheet.create({
   tab: {
     paddingVertical: 8,
     paddingHorizontal: 16,
-    marginRight: 8,
+    marginRight: 10,
     borderRadius: 20,
     backgroundColor: '#f5f5f5',
   },
   activeTab: {
     backgroundColor: '#0070e0',
+    shadowColor: '#0070e0',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
   },
   tabText: {
     fontSize: 14,
@@ -378,6 +387,7 @@ const styles = StyleSheet.create({
   },
   activeTabText: {
     color: '#fff',
+    fontFamily: 'Nunito_700Bold',
   },
   listContent: {
     paddingBottom: 20,
@@ -388,6 +398,12 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: '#fff',
     alignItems: 'center',
+    borderRadius: 0,
+  },
+  unreadChatItem: {
+    backgroundColor: '#f5f8ff',
+    borderLeftWidth: 4,
+    borderLeftColor: '#0070e0',
   },
   avatarContainer: {
     position: 'relative',
@@ -398,11 +414,14 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 28,
     backgroundColor: '#e1e1e1',
+    borderWidth: 1,
+    borderColor: '#f0f0f0',
   },
   courseAvatarContainer: {
     backgroundColor: '#0070e0',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 0,
   },
   courseAvatar: {
     width: 56,
@@ -420,26 +439,38 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1,
+    elevation: 2,
+    borderWidth: 1.5,
+    borderColor: '#fff',
   },
   unreadCount: {
     color: '#fff',
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: 'Nunito_700Bold',
   },
   chatContent: {
     flex: 1,
+    height: 56,
+    justifyContent: 'center',
   },
   chatHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   chatName: {
     fontSize: 16,
     fontFamily: 'Nunito_700Bold',
     color: '#333',
     flex: 1,
+  },
+  unreadChatName: {
+    color: '#0070e0',
   },
   chatTime: {
     fontSize: 12,
@@ -465,6 +496,12 @@ const styles = StyleSheet.create({
     fontFamily: 'Nunito_500Medium',
     color: '#666',
     flex: 1,
+    opacity: 0.8,
+  },
+  unreadChatSubtitle: {
+    fontFamily: 'Nunito_700Bold',
+    color: '#555',
+    opacity: 1,
   },
   chatTypeBadge: {
     backgroundColor: '#E3F2FD',
@@ -504,7 +541,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     marginTop: 20,
     marginHorizontal: 20,
-    borderRadius: 12,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
   },
   emptyText: {
     marginTop: 20,
@@ -519,6 +561,7 @@ const styles = StyleSheet.create({
     color: '#999',
     textAlign: 'center',
     paddingHorizontal: 20,
+    lineHeight: 20,
   },
 });
 
