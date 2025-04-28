@@ -172,7 +172,7 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
           (global as any).userId = user;
           console.log('Updated global userId from AsyncStorage:', user);
         } else {
-          // Retry getting user ID directly from token if possible
+          
           user = await getUserIdFromToken(access);
           if (user) {
             console.log('Retrieved user ID from token:', user);
@@ -220,7 +220,6 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
 
     setupChat();
 
-    // Cleanup on unmount
     return () => {
       console.log('Component unmounting, cleaning up resources');
       if (socketRef.current) {
@@ -261,7 +260,7 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
           timeout: 10000
         });
 
-        // Socket connection events
+        
         socketRef.current.on('connect', () => {
           console.log('Socket connected successfully');
           socketRef.current.emit('authenticate', user);
@@ -281,23 +280,21 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
           setError('Không thể kết nối đến server chat');
         });
 
-        // Chat specific events
         socketRef.current.on('newMessage', (data: any) => {
           console.log('New message received:', data);
           
-          // Log message structure to debug
+          
           console.log('Message sender structure:', typeof data.message.sender, JSON.stringify(data.message.sender, null, 2));
           
           if (data.chatId === chatId) {
-            // Make sure message structure is valid
+          
             if (!data.message || typeof data.message !== 'object') {
               console.error('Invalid message format received:', data.message);
               return;
             }
             
-            // Fix: Ensure sender is an object, not a string
             if (typeof data.message.sender === 'string') {
-              // If sender is just an ID string, convert it to an object
+              
               const senderId = data.message.sender;
               data.message.sender = { _id: senderId };
               console.log('Converted string sender to object:', data.message.sender);
@@ -306,35 +303,34 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
             setChat(prevChat => {
               if (!prevChat) return null;
               
-              // Check if the sender is already in participants
+           
               const senderExists = prevChat.participants.some(
                 p => p._id === data.message.sender._id
               );
               
-              // Get mentor user ID if available
+              
               const mentorUserId = typeof prevChat.mentorId === 'object' ? 
                 prevChat.mentorId?.user : 
                 null;
               
-              // If not in participants and this is likely a mentor message
+             
               if (!senderExists && prevChat.mentorId) {
                 console.log('Message from unrecognized sender detected - likely a mentor');
                 
-                // Check if we can confirm it's from mentor
+                
                 const isFromMentor = mentorUserId && mentorUserId === data.message.sender._id;
                 console.log('Is confirmed from mentor:', isFromMentor);
                 
-                // Use mentor info if available
+              
                 if (prevChat.mentorInfo?.user && !data.message.sender.name) {
                   data.message.sender.name = prevChat.mentorInfo.user.name || 'User';
                 } else if (!data.message.sender.name) {
                   data.message.sender.name = 'User';
                 }
                 
-                // If this is the first message from a mentor and we don't have mentor info yet,
-                // try to fetch it
+              
                 if (!prevChat.mentorInfo && accessToken && refreshToken) {
-                  // Use self-invoking async function to fetch mentor info
+                  
                   (async () => {
                     try {
                       // Extract mentorId correctly
@@ -364,7 +360,7 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
                 }
               }
               
-              // Ensure message has all required fields to prevent errors
+            
               const messageToAdd = {
                 ...data.message,
                 sender: {
@@ -410,7 +406,7 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
             setChat(prevChat => {
               if (!prevChat) return null;
               
-              // Update read status for messages
+              
               const updatedMessages = prevChat.messages.map(msg => {
                 if (data.messageIds.includes(msg._id) && !msg.readBy.includes(data.userId)) {
                   return {
@@ -428,7 +424,7 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
       } else {
         console.log('Socket already initialized');
         
-        // Ensure we're in the right chat room
+       
         if (chatId) {
           console.log(`Re-joining chat room: ${chatId}`);
           socketRef.current.emit('joinChat', chatId);
@@ -501,11 +497,10 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
           return;
         }
         
-        // Get the chat data
+      
         const chatData = response.data.chat;
         
-        // If this chat has a mentor, fetch the mentor details
-        // Handle both cases: when mentorId is an object with _id or when it's just a string ID
+  
         const mentorIdValue = typeof chatData.mentorId === 'object' ? 
           chatData.mentorId?._id : 
           chatData.mentorId;
@@ -534,7 +529,7 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
         
         setChat(chatData);
         
-        // Scroll to bottom when chat loads
+       
         setTimeout(() => {
           if (flatListRef.current && chatData.messages.length > 0) {
             flatListRef.current.scrollToEnd({ animated: false });
@@ -551,7 +546,7 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
     }
   };
 
-  // Helper function to fetch mentor information
+  
   const fetchMentorInfo = async (mentorId: string, access: string, refresh: string): Promise<MentorInfo | null> => {
     try {
       console.log(`Fetching mentor info for ID: ${mentorId}`);
@@ -587,7 +582,7 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
   const handleMessageChange = (text: string) => {
     setMessage(text);
     
-    // Handle typing indicator
+  
     if (socketRef.current) {
       if (!isTyping && text.length > 0) {
         setIsTyping(true);
@@ -598,12 +593,12 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
         });
       }
       
-      // Clear any existing timeout
+    
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
       }
       
-      // Set new timeout to stop typing indicator after 3 seconds of inactivity
+    
       typingTimeoutRef.current = setTimeout(() => {
         if (isTyping) {
           setIsTyping(false);
@@ -630,19 +625,19 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
       setMessage('');
       setIsTyping(false);
       
-      // Clear typing timeout
+      
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
       }
       
-      // Send typing stopped event
+      
       socketRef.current.emit('typing', { 
         chatId, 
         userId, 
         isTyping: false 
       });
       
-      // Hide keyboard on send
+      
       Keyboard.dismiss();
     } catch (error) {
       console.error('Error sending message:', error);
@@ -665,7 +660,7 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
   };
 
   const renderMessage = ({ item }: { item: Message }) => {
-    // Safety check - ensure item is a valid message object
+    
     if (!item || typeof item !== 'object' || !item.sender) {
       console.error('Invalid message item:', item);
       return null;
@@ -673,7 +668,7 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
     
     // Ensure sender is an object, not a string
     if (typeof item.sender === 'string') {
-      // Just log this case, we shouldn't modify the item directly here as it's from state
+     
       console.error('Message with string sender detected in renderMessage:', item);
       return null;
     }
@@ -683,70 +678,67 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
       .filter(p => p._id !== userId)
       .some(p => item.readBy.includes(p._id));
     
-    // Format message timestamp
+  // Format mpessage timestam
     const messageDate = new Date(item.createdAt);
     const now = new Date();
     const isToday = messageDate.toDateString() === now.toDateString();
     const timeString = messageDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
     
-    // Find sender information - check if it's a mentor or regular participant
+  
     const getSenderName = () => {
-      // First try to find in participants
+   
       const participantSender = chat?.participants.find(p => p._id === item.sender._id);
       if (participantSender?.name) return participantSender.name;
       
-      // Get mentor user ID if available
+      
       const mentorUserId = typeof chat?.mentorId === 'object' ? 
         chat?.mentorId?.user : 
-        null; // We don't have user ID if mentorId is just a string ID
-      
-      // If not found in participants and there's a mentorInfo object
+        null; 
       if (chat?.mentorInfo?.user) {
-        // Check if sender matches mentor user (if we have user ID)
+        
         if (mentorUserId && mentorUserId === item.sender._id) {
           return chat.mentorInfo.user.name || "User";
         }
         
-        // If we don't have mentorId.user to compare, just use mentorInfo name
-        // as a fallback for unrecognized senders (assuming they're the mentor)
+   
         if (!participantSender) {
           return chat.mentorInfo.user.name || "Mentor";
         }
       }
       
-      // If it's a course chat and we think sender might be mentor
+      
       if (chat?.chatType === 'course' && !participantSender) {
-        return "Mentor"; // Default if we don't have the mentor name
+        return "Mentor"; 
       }
       
-      // If we have the sender name in the message itself
+   
       if (item.sender.name) return item.sender.name;
       
       // Fallback
       return 'User';
     };
     
-    // Get avatar URL for sender
+   
     const getSenderAvatar = () => {
-      // First check if sender is a regular participant
+      
       const participantSender = chat?.participants.find(p => p._id === item.sender._id);
       if (participantSender?.avatar?.url) {
         return `${URL_IMAGES}/${participantSender.avatar.url}`;
       }
       
-      // Get mentor user ID if available
+     
       const mentorUserId = typeof chat?.mentorId === 'object' ? 
         chat?.mentorId?.user : 
         null;
       
-      // If sender is a mentor and we have mentor info
+     
       if (chat?.mentorInfo?.user && ((mentorUserId && mentorUserId === item.sender._id) || !participantSender)) {
         if (chat.mentorInfo.user.avatar?.url) {
           return `${URL_IMAGES}/${chat.mentorInfo.user.avatar.url}`;
         }
       }
       
-      // Default avatar
+      
       return `https://ui-avatars.com/api/?name=${encodeURIComponent(getSenderName())}&background=0D8ABC&color=fff`;
     };
     
@@ -803,42 +795,42 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
     
     if (chat) {
       if (chat.chatType === 'private') {
-        // For private chats, show the other participant's name
+        
         const otherParticipant = chat.participants.find(p => p._id !== userId);
         
-        // Get mentor user ID if available
+        
         const mentorUserId = typeof chat.mentorId === 'object' ? 
           chat.mentorId?.user : 
           null;
         
-        // Handle case where the other participant might be a mentor
+        
         if (otherParticipant) {
           title = otherParticipant.name || 'User';
           avatarUrl = otherParticipant.avatar?.url || '';
         } else if (mentorUserId || (chat.mentorId && !otherParticipant)) {
-          // If the other participant is not found but there's a mentor
+         
           if (chat.mentorInfo?.user) {
-            // Use mentorInfo if available
+            
             title = chat.mentorInfo.user.name || 'Mentor';
             avatarUrl = chat.mentorInfo.user.avatar?.url || '';
           } else {
             title = 'Mentor';
-            // No avatar URL 
+           
           }
         }
         
         subtitle = 'Direct message';
       } else {
-        // For course chats, show the course name
+        
         title = chat.name || chat.courseId?.name || 'Course Chat';
-        subtitle = `${chat.participants.length} participants`;
+        subtitle = `${chat.participants.length} thành viên`;
         avatarUrl = chat.courseId?.thumbnail?.url || '';
       }
     }
     
-    // DEBUG: Test function to fetch mentor info manually
+    
     const testFetchMentor = async () => {
-      // Get the mentorId value whether it's an object or a string
+      
       const mentorIdValue = chat?.mentorId ? 
         (typeof chat.mentorId === 'object' ? chat.mentorId._id : chat.mentorId) : 
         null;
@@ -853,7 +845,7 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
           console.log("DEBUG: Fetched mentor info:", JSON.stringify(mentorInfo, null, 2));
           console.log("DEBUG: Mentor user info:", JSON.stringify(mentorInfo.user, null, 2));
           
-          // Update the chat with mentor info
+          
           setChat(currentChat => {
             if (!currentChat) return null;
             return {...currentChat, mentorInfo};
@@ -909,7 +901,7 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
           </View>
         </View>
         
-        {/* DEBUG: Temporary button to test mentor info fetching */}
+        {}
         <TouchableOpacity 
           style={{...styles.infoButton, backgroundColor: '#ff9800'}} 
           onPress={testFetchMentor}>
@@ -966,16 +958,16 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
       );
     }
     
-    // Filter out invalid messages to prevent rendering errors
+    
     const validMessages = chat.messages.filter(message => {
-      // Check if the message has the minimum required structure
+      
       if (!message || typeof message !== 'object') return false;
       if (!message.sender || !message._id) return false;
       
-      // Convert string senders to objects
+      
       if (typeof message.sender === 'string') {
         console.log('Found message with string sender, converting to object:', message._id);
-        // Create a new sender object
+       
         (message as any).sender = { _id: message.sender };
       }
       
@@ -984,7 +976,7 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
     
     console.log(`Found ${chat.messages.length - validMessages.length} invalid messages that will be skipped`);
     
-    // Group messages by date
+   
     const messagesByDate: {[key: string]: Message[]} = {};
     validMessages.forEach(message => {
       const date = new Date(message.createdAt).toDateString();
@@ -994,7 +986,7 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
       messagesByDate[date].push(message);
     });
     
-    // Flatten the grouped messages with date separators
+    
     const flattenedMessages: (Message | {_id: string, type: 'date', date: string})[] = [];
     Object.entries(messagesByDate).forEach(([date, messages]) => {
       flattenedMessages.push({
@@ -1035,12 +1027,12 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
     );
   };
 
-  // Helper function to get user ID from token if possible
+  
   const getUserIdFromToken = async (accessToken: string | null): Promise<string | null> => {
     if (!accessToken) return null;
     
     try {
-      // Try to get user info from server
+      
       const response = await axios.get(`${URL_SERVER}/me`, {
         headers: {
           'access-token': accessToken

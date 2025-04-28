@@ -10,7 +10,8 @@ type RouteNames = "index"
             | "search/index" 
             | "courses/index"
             | "profile/index"
-            | "wishlist/index";
+            | "wishlist/index"
+            | "chat/index";
 
             
 const TabBar = ({state, navigation, descriptors}: any) => {
@@ -33,11 +34,12 @@ const TabBar = ({state, navigation, descriptors}: any) => {
     }, [state.index]);
 
     const icons = {
-        ['index']: ({color}: {color: string}) => <Octicons name="home" size={24} color={color} />,
-        ['search/index']: ({color}: {color: string}) => <Ionicons name="search" size={24} color={color} />,
-        ['courses/index']: ({color}: {color: string}) => <AntDesign name="book" size={24} color={color} />,
-        ['profile/index']: ({color}: {color: string}) => <AntDesign name="user" size={24} color={color} />,
-        ['wishlist/index']: ({color}: {color: string}) => <AntDesign name="heart" size={24} color={color} />,
+        ['index']: ({color}: {color: string}) => <Octicons name="home" size={28} color={color} />,
+        ['search/index']: ({color}: {color: string}) => <Ionicons name="search" size={28} color={color} />,
+        ['courses/index']: ({color}: {color: string}) => <AntDesign name="book" size={28} color={color} />,
+        ['profile/index']: ({color}: {color: string}) => <AntDesign name="user" size={28} color={color} />,
+        ['wishlist/index']: ({color}: {color: string}) => <AntDesign name="heart" size={28} color={color} />,
+        ['chat/index']: ({color}: {color: string}) => <AntDesign name="message1" size={28} color={color} />,
     }
     const activeColor = '#0070e0';
     const inactiveColor = 'rgba(0, 0, 0, 0.5)';
@@ -46,13 +48,6 @@ const TabBar = ({state, navigation, descriptors}: any) => {
         <View style={[styles.tabBar]}>
           {state.routes.map((route: any, index: any) => {
             const { options } = descriptors[route.key];
-            const label =
-              options.tabBarLabel !== undefined
-                ? options.tabBarLabel
-                : options.title !== undefined
-                ? options.title
-                : route.name;
-    
             const routeName = route.name;
                 
             const isFocused = state.index === index;
@@ -116,12 +111,6 @@ const TabBar = ({state, navigation, descriptors}: any) => {
                           color: isFocused ? activeColor : inactiveColor
                       })
                   }
-                  <Text style={[
-                    styles.tabText, 
-                    { color: isFocused ? activeColor : inactiveColor }
-                  ]}>
-                    {label + ''}
-                  </Text>
                 </Animated.View>
                 {isFocused && (
                   <Animated.View 
@@ -171,11 +160,6 @@ const styles = StyleSheet.create({
     tabContent: {
         alignItems: 'center',
         justifyContent: 'center',
-    },
-    tabText: {
-        fontSize: 12,
-        marginTop: 4,
-        fontWeight: '500',
     },
     activeIndicator: {
         height: 3,

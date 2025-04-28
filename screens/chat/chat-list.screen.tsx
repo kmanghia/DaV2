@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -24,6 +24,7 @@ import { useFonts } from 'expo-font';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useFocusEffect } from '@react-navigation/native';
 
 interface ChatPreview {
   _id: string;
@@ -73,19 +74,27 @@ const ChatListScreen = () => {
     Nunito_600SemiBold,
   });
 
-  useEffect(() => {
-    const getUserData = async () => {
-      const storedUserId = await AsyncStorage.getItem('user_id');
-      if (storedUserId) {
-        // Lưu vào global state để các màn hình khác sử dụng
-        (global as any).userId = storedUserId;
-        console.log('Set global userId in chat-list:', storedUserId);
-      }
-      setUserId(storedUserId);
-      loadChats();
-    };
-    getUserData();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      console.log('ChatListScreen focused - reloading chat data');
+      const getUserData = async () => {
+        const storedUserId = await AsyncStorage.getItem('user_id');
+        if (storedUserId) {
+          
+          (global as any).userId = storedUserId;
+          console.log('Set global userId in chat-list:', storedUserId);
+        }
+        setUserId(storedUserId);
+        loadChats();
+      };
+      getUserData();
+      
+      return () => {
+       
+        console.log('ChatListScreen focus lost');
+      };
+    }, [])
+  );
 
   const loadChats = async () => {
     try {
@@ -99,14 +108,14 @@ const ChatListScreen = () => {
         return;
       }
       
-      console.log('Calling chats API...');
+      console.log('Calling chats API to get latest data...');
       const response = await axios.get(`${URL_SERVER}/chat/all`, {
         headers: {
           'access-token': accessToken,
           'refresh-token': refreshToken
         }
       });
-      console.log('Chats API response:', response.data);
+      console.log('Chats API response received:', response.data.success ? 'success' : 'failed');
 
       if (!response || !response.data) {
         console.error('Response is null or missing data');
@@ -114,7 +123,7 @@ const ChatListScreen = () => {
       }
       
       if (response.data.success) {
-        // Process chats to extract last message and unread count
+       
         const processedPrivateChats = response.data.privateChats.map((chat: any) => {
           const otherParticipant = chat.participants.find((p: any) => p._id !== currentUserId);
           return {
@@ -128,6 +137,7 @@ const ChatListScreen = () => {
           };
         });
         
+        console.log(`Loaded ${processedPrivateChats.length} private chats and ${response.data.courseChats.length} course chats`);
         setPrivateChats(processedPrivateChats);
         setCourseChats(response.data.courseChats);
       }
@@ -140,6 +150,7 @@ const ChatListScreen = () => {
   };
 
   const onRefresh = () => {
+    console.log('Manual refresh triggered');
     setRefreshing(true);
     loadChats();
   };
@@ -152,42 +163,42 @@ const ChatListScreen = () => {
   };
 
   const renderChatItem = ({ item }: { item: ChatPreview }) => {
-    // Determine the correct name and avatar to display
+    
     let name = '';
     let avatarUrl = '';
     let subtitle = '';
     
     if (item.chatType === 'private') {
-      // For private chats, show the other participant's name
+      
       const otherParticipant = item.participants.find(p => p._id !== userId);
       name = otherParticipant?.name || 'Unknown User';
       avatarUrl = otherParticipant?.avatar?.url || '';
       subtitle = 'Direct message';
     } else {
-      // For course chats, show the course name
+      
       name = item.name || item.courseId?.name || 'Course Chat';
       avatarUrl = item.courseId?.thumbnail?.url || '';
-      subtitle = 'Course group chat';
+      subtitle = 'Nhóm trao đổi khóa học';
     }
     
-    // Format the last updated time
+  
     const updatedAt = new Date(item.updatedAt);
     const now = new Date();
     const diffHours = Math.round((now.getTime() - updatedAt.getTime()) / (1000 * 60 * 60));
     
     let timeText;
     if (diffHours < 24) {
-      // Today, show time
+     
       timeText = updatedAt.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
     } else if (diffHours < 48) {
       // Yesterday
       timeText = 'Yesterday';
     } else {
-      // More than 2 days, show date
+     
       timeText = updatedAt.toLocaleDateString();
     }
     
-    // Determine if this chat has unread messages
+   
     const hasUnread = item.unreadCount && item.unreadCount > 0;
     
     return (
@@ -294,8 +305,11 @@ const ChatListScreen = () => {
           <View style={styles.headerTopRow}>
             <Text style={styles.title}>Tin nhắn</Text>
             <View style={styles.headerActions}>
-              <TouchableOpacity style={styles.headerButton}>
-                <Feather name="edit" size={20} color="#666" />
+              <TouchableOpacity 
+                style={styles.headerButton}
+                onPress={() => router.push('/mentors')}
+              >
+                <Feather name="users" size={20} color="#666" />
               </TouchableOpacity>
               <TouchableOpacity style={styles.headerButton}>
                 <Feather name="search" size={20} color="#666" />
