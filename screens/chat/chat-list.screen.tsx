@@ -175,13 +175,10 @@ const ChatListScreen = () => {
       avatarUrl = otherParticipant?.avatar?.url || '';
       subtitle = 'Direct message';
     } else {
-      
       name = item.name || item.courseId?.name || 'Course Chat';
-      avatarUrl = item.courseId?.thumbnail?.url || '';
+      avatarUrl = item.courseId?.thumbnail?.url || (item.courseId?.thumbnail as unknown as string) || '';
       subtitle = 'Nhóm trao đổi khóa học';
     }
-    
-  
     const updatedAt = new Date(item.updatedAt);
     const now = new Date();
     const diffHours = Math.round((now.getTime() - updatedAt.getTime()) / (1000 * 60 * 60));

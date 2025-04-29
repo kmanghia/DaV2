@@ -1,5 +1,5 @@
 import Loader from "@/components/loader";
-import { URL_SERVER } from "@/utils/url";
+import { URL_SERVER, URL_IMAGES } from "@/utils/url";
 import axios from "axios";
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
@@ -385,6 +385,17 @@ const CourseQuizzScreen = () => {
                                     </View>
                                     
                                     <Text style={styles.questionText}>{item.question}</Text>
+                                    
+                                    {/* Display question image if it exists */}
+                                    {item.questionImage && item.questionImage.url && (
+                                        <View style={styles.questionImageContainer}>
+                                            <Image 
+                                                source={{ uri: `${URL_IMAGES}/${item.questionImage.url}` }}
+                                                style={styles.questionImage}
+                                                resizeMode="contain"
+                                            />
+                                        </View>
+                                    )}
                                     
                                     <View style={styles.optionsContainer}>
                                         {item.options.map((option, optionIndex) => (
@@ -938,6 +949,21 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontFamily: 'Nunito_600SemiBold',
         marginLeft: 8,
+    },
+    questionImageContainer: {
+        width: '100%',
+        marginVertical: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: 12,
+        overflow: 'hidden',
+        backgroundColor: 'rgba(0,0,0,0.03)',
+        paddingVertical: 8,
+    },
+    questionImage: {
+        width: width * 0.85,
+        height: width * 0.6,
+        borderRadius: 8,
     },
 })
 

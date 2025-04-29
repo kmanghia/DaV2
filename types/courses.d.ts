@@ -22,6 +22,9 @@ type IQuizz = {
     question: string;
     options: string[];
     correctAnswer: string;
+    questionImage?: {
+        url: string;
+    };
 }
 
 type CourseDataType = {
