@@ -76,13 +76,13 @@ const ChatListScreen = () => {
 
   useFocusEffect(
     useCallback(() => {
-      console.log('ChatListScreen focused - reloading chat data');
+     
       const getUserData = async () => {
         const storedUserId = await AsyncStorage.getItem('user_id');
         if (storedUserId) {
           
           (global as any).userId = storedUserId;
-          console.log('Set global userId in chat-list:', storedUserId);
+   
         }
         setUserId(storedUserId);
         loadChats();
@@ -91,7 +91,7 @@ const ChatListScreen = () => {
       
       return () => {
        
-        console.log('ChatListScreen focus lost');
+        
       };
     }, [])
   );
@@ -104,22 +104,22 @@ const ChatListScreen = () => {
       const currentUserId = userId || await AsyncStorage.getItem('user_id');
       
       if (!accessToken || !refreshToken) {
-        console.error('No auth tokens found');
+        
         return;
       }
       
-      console.log('Calling chats API to get latest data...');
+      
       const response = await axios.get(`${URL_SERVER}/chat/all`, {
         headers: {
           'access-token': accessToken,
           'refresh-token': refreshToken
         }
       });
-      console.log('Chats API response received:', response.data.success ? 'success' : 'failed');
+      
 
       if (!response || !response.data) {
-        console.error('Response is null or missing data');
-        throw new Error('Failed to fetch chat data');
+        
+        throw new Error('Tải dữ liệu trò chuyện thất bại.');
       }
       
       if (response.data.success) {
@@ -137,12 +137,12 @@ const ChatListScreen = () => {
           };
         });
         
-        console.log(`Loaded ${processedPrivateChats.length} private chats and ${response.data.courseChats.length} course chats`);
+        
         setPrivateChats(processedPrivateChats);
         setCourseChats(response.data.courseChats);
       }
     } catch (error) {
-      console.error('Error loading chats:', error);
+    
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -150,7 +150,7 @@ const ChatListScreen = () => {
   };
 
   const onRefresh = () => {
-    console.log('Manual refresh triggered');
+    
     setRefreshing(true);
     loadChats();
   };
@@ -173,7 +173,7 @@ const ChatListScreen = () => {
       const otherParticipant = item.participants.find(p => p._id !== userId);
       name = otherParticipant?.name || 'Unknown User';
       avatarUrl = otherParticipant?.avatar?.url || '';
-      subtitle = 'Direct message';
+      subtitle = 'Nhắn tin riêng';
     } else {
       name = item.name || item.courseId?.name || 'Course Chat';
       avatarUrl = item.courseId?.thumbnail?.url || (item.courseId?.thumbnail as unknown as string) || '';

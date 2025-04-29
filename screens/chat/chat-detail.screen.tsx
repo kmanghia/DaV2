@@ -10,11 +10,15 @@ import {
   Platform,
   ActivityIndicator,
   Image,
-  Keyboard
+  Keyboard,
+  Alert,
+  Modal,
+  Dimensions,
+  Linking
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { FontAwesome, Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { URL_IMAGES, URL_SERVER } from '@/utils/url';
+import { FontAwesome, Ionicons, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { URL_IMAGES, URL_SERVER, URL_VIDEO } from '@/utils/url';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { Nunito_400Regular, Nunito_500Medium, Nunito_600SemiBold, Nunito_700Bold } from '@expo-google-fonts/nunito';
@@ -23,6 +27,19 @@ import { useFonts } from 'expo-font';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import io from 'socket.io-client';
+import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
+import * as WebBrowser from 'expo-web-browser';
+
+interface Attachment {
+  type: string;
+  url: string;
+  filename: string;
+  mimeType: string;
+  size?: number;
+  thumbnailUrl?: string;
+}
 
 interface Message {
   _id: string;
@@ -33,6 +50,7 @@ interface Message {
   content: string;
   readBy: string[];
   createdAt: string;
+  attachments?: Attachment[];
 }
 
 interface ChatParticipant {
@@ -90,9 +108,7 @@ interface ChatDetailScreenProps {
 const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
   const params = useLocalSearchParams();
   
-  // Log toàn bộ params để debug
-  console.log('All params from useLocalSearchParams:', params);
-  console.log('Prop chatId:', propChatId);
+
   
   // Xử lý nhiều trường hợp khác nhau cho ID
   let chatId: string | undefined = propChatId;
@@ -116,10 +132,11 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
     }
   }
   
-  console.log('Final chat ID to use:', chatId, typeof chatId);
+  
   
   const [chat, setChat] = useState<ChatDetails | null>(null);
   const [message, setMessage] = useState('');
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [typing, setTyping] = useState(false);
@@ -129,6 +146,7 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState<string | null>(null);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   
   const flatListRef = useRef<FlatList | null>(null);
   const socketRef = useRef<any>(null);
@@ -143,14 +161,18 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
     Nunito_600SemiBold,
   });
 
+  // Add new state for image viewer
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [imageViewerVisible, setImageViewerVisible] = useState(false);
+
   useEffect(() => {
-    console.log('Running main useEffect, chatId:', chatId);
+    
     
     // Kiểm tra nếu có userId trong global state
     if ((global as any).userId) {
-      console.log('Found userId in global state:', (global as any).userId);
+      console.log((global as any).userId);
     } else {
-      console.log('No userId in global state, will retrieve from AsyncStorage');
+      
     }
     
     const setupChat = async () => {
@@ -166,11 +188,11 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
         // Sử dụng userId từ global state nếu có
         if ((global as any).userId && !user) {
           user = (global as any).userId;
-          console.log('Using userId from global state:', user);
+          
         } else if (user) {
           // Lưu vào global state để sử dụng sau này
           (global as any).userId = user;
-          console.log('Updated global userId from AsyncStorage:', user);
+          
         } else {
           
           user = await getUserIdFromToken(access);
@@ -196,7 +218,7 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
           await loadChat(access, refresh);
           initializeSocket(user);
         } else {
-          console.error('Missing required values for chat');
+          
           
           // Hiển thị thông báo lỗi cụ thể hơn
           if (!access || !refresh) {
@@ -210,7 +232,7 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
           }
         }
       } catch (err) {
-        console.error('Error in setupChat:', err);
+        
         setError('Lỗi khi cài đặt hội thoại');
       } finally {
         setLoading(false);
@@ -221,14 +243,14 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
     setupChat();
 
     return () => {
-      console.log('Component unmounting, cleaning up resources');
+      
       if (socketRef.current) {
-        console.log('Disconnecting socket');
+        
         socketRef.current.disconnect();
         socketRef.current = null;
       }
       if (typingTimeoutRef.current) {
-        console.log('Clearing typing timeout');
+        
         clearTimeout(typingTimeoutRef.current);
         typingTimeoutRef.current = null;
       }
@@ -238,19 +260,19 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
   const initializeSocket = (user: string) => {
     try {
       if (!socketRef.current) {
-        console.log('Initializing socket connection...');
+        
         // Loại bỏ api/v1 khỏi URL server để có đúng URL socket
         const socketUrl = URL_SERVER.replace('/api/v1', '');
-        console.log('Socket URL:', socketUrl);
+        
         
         // Kiểm tra cấu trúc URL hợp lệ
         if (!socketUrl.startsWith('http')) {
-          console.error('Invalid socket URL:', socketUrl);
+          
           setError('URL kết nối socket không hợp lệ');
           return;
         }
         
-        console.log('Connecting to socket with userId:', user);
+      
         socketRef.current = io(socketUrl, {
           transports: ['websocket'],
           query: { userId: user },
@@ -262,11 +284,11 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
 
         
         socketRef.current.on('connect', () => {
-          console.log('Socket connected successfully');
+          
           socketRef.current.emit('authenticate', user);
           
           if (chatId) {
-            console.log(`Joining chat room: ${chatId}`);
+            
             socketRef.current.emit('joinChat', chatId);
           }
         });
@@ -276,20 +298,20 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
         });
 
         socketRef.current.on('connect_error', (error: any) => {
-          console.error('Socket connection error:', error);
+          
           setError('Không thể kết nối đến server chat');
         });
 
         socketRef.current.on('newMessage', (data: any) => {
-          console.log('New message received:', data);
+        
           
           
-          console.log('Message sender structure:', typeof data.message.sender, JSON.stringify(data.message.sender, null, 2));
+          
           
           if (data.chatId === chatId) {
           
             if (!data.message || typeof data.message !== 'object') {
-              console.error('Invalid message format received:', data.message);
+              
               return;
             }
             
@@ -297,7 +319,7 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
               
               const senderId = data.message.sender;
               data.message.sender = { _id: senderId };
-              console.log('Converted string sender to object:', data.message.sender);
+            
             }
             
             setChat(prevChat => {
@@ -315,11 +337,11 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
               
              
               if (!senderExists && prevChat.mentorId) {
-                console.log('Message from unrecognized sender detected - likely a mentor');
+            
                 
                 
                 const isFromMentor = mentorUserId && mentorUserId === data.message.sender._id;
-                console.log('Is confirmed from mentor:', isFromMentor);
+                
                 
               
                 if (prevChat.mentorInfo?.user && !data.message.sender.name) {
@@ -333,12 +355,12 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
                   
                   (async () => {
                     try {
-                      // Extract mentorId correctly
+                      
                       const mentorIdValue = typeof prevChat.mentorId === 'object' ? 
                         prevChat.mentorId._id : 
                         prevChat.mentorId;
                       
-                      console.log('Attempting to fetch mentor info after message receipt:', mentorIdValue);
+                    
                       
                       const mentorInfo = await fetchMentorInfo(
                         mentorIdValue, 
@@ -347,14 +369,14 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
                       );
                       
                       if (mentorInfo) {
-                        console.log('Fetched mentor info after receiving message:', mentorInfo.user?.name || "Unknown mentor");
+                        
                         setChat(currentChat => {
                           if (!currentChat) return null;
                           return {...currentChat, mentorInfo};
                         });
                       }
                     } catch (err) {
-                      console.error('Error fetching mentor info after message:', err);
+                    
                     }
                   })();
                 }
@@ -422,16 +444,16 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
           }
         });
       } else {
-        console.log('Socket already initialized');
+        
         
        
         if (chatId) {
-          console.log(`Re-joining chat room: ${chatId}`);
+  
           socketRef.current.emit('joinChat', chatId);
         }
       }
     } catch (error) {
-      console.error('Error initializing socket:', error);
+    
       setError('Lỗi khi khởi tạo kết nối chat');
     }
   };
@@ -439,7 +461,7 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
   const loadChat = async (access: string, refresh: string) => {
     try {
       if (!chatId) {
-        console.error('Chat ID is missing or invalid');
+        
         setError('Chat ID is missing');
         setLoading(false);
         return;
@@ -448,8 +470,7 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
       setLoading(true);
       setError(null);
       
-      console.log(`Loading chat with ID: ${chatId}`);
-      console.log(`API URL: ${URL_SERVER}/chat/${chatId}`);
+     
       
       const response = await axios.get(`${URL_SERVER}/chat/${chatId}`, {
         headers: {
@@ -458,7 +479,7 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
         }
       }).catch(error => {
         if (error.response) {
-          console.error('API response error:', error.response.status, error.response.data);
+         
           
           if (error.response.status === 404) {
             setError('Chat không tồn tại');
@@ -468,10 +489,10 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
             setError('Lỗi khi tải hội thoại');
           }
         } else if (error.request) {
-          console.error('No response from server:', error.request);
+          
           setError('Không thể kết nối đến máy chủ');
         } else {
-          console.error('Error setting up request:', error.message);
+        
           setError('Lỗi kết nối');
         }
         throw error;
@@ -491,7 +512,7 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
         
         // Kiểm tra cấu trúc dữ liệu
         if (!response.data.chat.messages) {
-          console.error('Chat object does not contain messages array');
+          
           setError('Dữ liệu chat không chứa tin nhắn');
           setLoading(false);
           return;
@@ -507,24 +528,20 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
           
         if (mentorIdValue) {
           try {
-            console.log('DEBUG: Trying to fetch mentor info for mentor ID:', mentorIdValue);
-            console.log('DEBUG: Raw mentorId value is:', JSON.stringify(chatData.mentorId, null, 2));
+         
             
             const mentorInfo = await fetchMentorInfo(mentorIdValue, access, refresh);
             if (mentorInfo) {
               chatData.mentorInfo = mentorInfo;
-              console.log('Added mentor info to chat:', mentorInfo.user?.name || "Unknown mentor");
-              console.log('Full mentor info:', JSON.stringify(mentorInfo, null, 2));
+              
             } else {
-              console.log('DEBUG: fetchMentorInfo returned null');
+              
             }
           } catch (err) {
-            console.error('Error fetching mentor info:', err);
-            // Continue without mentor info
+            
           }
         } else {
-          console.log('DEBUG: No mentorId found in chat data');
-          console.log('DEBUG: Chat data structure:', Object.keys(chatData));
+          
         }
         
         setChat(chatData);
@@ -536,7 +553,7 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
           }
         }, 100);
       } else {
-        console.error('Response not successful:', response?.data);
+        
         setError('Không thể tải hội thoại');
       }
     } catch (error) {
@@ -549,8 +566,7 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
   
   const fetchMentorInfo = async (mentorId: string, access: string, refresh: string): Promise<MentorInfo | null> => {
     try {
-      console.log(`Fetching mentor info for ID: ${mentorId}`);
-      console.log(`Using URL: ${URL_SERVER}/${mentorId}`);
+      
       
       const response = await axios.get(`${URL_SERVER}/${mentorId}`, {
         headers: {
@@ -559,21 +575,19 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
         }
       });
       
-      console.log('Mentor API response status:', response.status);
-      console.log('Mentor API response data:', JSON.stringify(response.data, null, 2));
+     
       
       if (response.data && response.data.success && response.data.mentor) {
-        console.log('Mentor info fetched successfully:', response.data.mentor.user?.name || "Unknown");
+       
         return response.data.mentor;
       } else {
-        console.log('Mentor API returned success but no mentor data found');
+        
       }
       return null;
     } catch (error: any) {
-      console.error('Error fetching mentor info:', error.message);
+      
       if (error.response) {
-        console.error('Error response status:', error.response.status);
-        console.error('Error response data:', error.response.data);
+       
       }
       return null;
     }
@@ -612,24 +626,119 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
     }
   };
 
+  const pickImage = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (permissionResult.granted === false) {
+        
+        return;
+      }
+      
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.All,
+        allowsEditing: false,
+        quality: 0.8,
+      });
+      
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        
+        if (attachments.length >= 5) {
+         
+          return;
+        }
+        
+        // Upload the image
+        await uploadAttachment(asset.uri, asset.fileName || 'image.jpg', asset.mimeType || 'image/jpeg', asset.fileSize || 0);
+      }
+    } catch (error) {
+    
+    }
+  };
+  
+  const pickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        copyToCacheDirectory: true,
+      });
+      
+      if (result.canceled === false && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        
+        if (attachments.length >= 5) {
+        
+          return;
+        }
+        
+        await uploadAttachment(asset.uri, asset.name || 'document', asset.mimeType || 'application/octet-stream', asset.size || 0);
+      }
+    } catch (error) {
+      
+    }
+  };
+  
+  const uploadAttachment = async (uri: string, fileName: string, mimeType: string, fileSize: number) => {
+    if (!accessToken || !refreshToken) {
+      
+      return;
+    }
+    
+    setIsUploading(true);
+    
+    try {
+      
+      const formData = new FormData();
+      formData.append('files', {
+        uri,
+        name: fileName,
+        type: mimeType,
+      } as any);
+      
+      
+      const response = await axios.post(`${URL_SERVER}/chat/upload-attachments`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'access-token': accessToken,
+          'refresh-token': refreshToken
+        }
+      });
+      
+      if (response.data.success && response.data.attachments) {
+        setAttachments(prev => [...prev, ...response.data.attachments]);
+      } else {
+
+      }
+    } catch (error) {
+ 
+    } finally {
+      setIsUploading(false);
+    }
+  };
+  
+  const removeAttachment = (index: number) => {
+    setAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+  
   const sendMessage = () => {
-    if (!message.trim() || !socketRef.current || !userId) return;
+    if ((!message.trim() && attachments.length === 0) || !socketRef.current || !userId) return;
     
     try {
       socketRef.current.emit('sendMessage', {
         chatId,
         message: message.trim(),
-        senderId: userId
+        senderId: userId,
+        attachments
       });
       
       setMessage('');
+      setAttachments([]);
       setIsTyping(false);
-      
       
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
       }
-      
       
       socketRef.current.emit('typing', { 
         chatId, 
@@ -637,20 +746,19 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
         isTyping: false 
       });
       
-      
       Keyboard.dismiss();
     } catch (error) {
-      console.error('Error sending message:', error);
+    
     }
   };
 
   const markMessageAsRead = (messageId: string) => {
     if (!socketRef.current || !userId || !messageId) {
-      console.log('Cannot mark message as read - missing socket, userId, or messageId');
+      
       return;
     }
     
-    console.log('Marking message as read:', messageId);
+    
     
     socketRef.current.emit('markAsRead', {
       chatId,
@@ -669,7 +777,7 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
     // Ensure sender is an object, not a string
     if (typeof item.sender === 'string') {
      
-      console.error('Message with string sender detected in renderMessage:', item);
+      
       return null;
     }
     
@@ -742,6 +850,51 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
       return `https://ui-avatars.com/api/?name=${encodeURIComponent(getSenderName())}&background=0D8ABC&color=fff`;
     };
     
+    const renderAttachments = () => {
+      if (!item.attachments || item.attachments.length === 0) return null;
+      
+      return (
+        <View style={styles.attachmentsContainer}>
+          {item.attachments.map((attachment, index) => (
+            <TouchableOpacity 
+              key={index}
+              style={styles.attachmentItem}
+              onPress={() => handleAttachmentPress(attachment)}
+            >
+              {attachment.type === 'image' ? (
+                <Image 
+                  source={{ uri: `${URL_IMAGES}/${attachment.url}` }} 
+                  style={styles.attachmentImage} 
+                  resizeMode="cover"
+                />
+              ) : attachment.type === 'video' ? (
+                <View style={styles.attachmentFileContainer}>
+                  <MaterialIcons name="video-file" size={24} color="#ff6b6b" />
+                  <Text style={styles.attachmentFileName} numberOfLines={1}>
+                    {attachment.filename}
+                  </Text>
+                </View>
+              ) : attachment.type === 'audio' ? (
+                <View style={styles.attachmentFileContainer}>
+                  <MaterialIcons name="audio-file" size={24} color="#5f27cd" />
+                  <Text style={styles.attachmentFileName} numberOfLines={1}>
+                    {attachment.filename}
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.attachmentFileContainer}>
+                  <MaterialIcons name="insert-drive-file" size={24} color="#0070e0" />
+                  <Text style={styles.attachmentFileName} numberOfLines={1}>
+                    {attachment.filename}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
+      );
+    };
+    
     return (
       <View style={[
         styles.messageContainer,
@@ -764,12 +917,17 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
               {getSenderName()}
             </Text>
           )}
-          <Text style={[
-            styles.messageText,
-            isOwnMessage ? styles.ownMessageText : styles.otherMessageText
-          ]}>
-            {item.content}
-          </Text>
+          {item.content.trim().length > 0 && (
+            <Text style={[
+              styles.messageText,
+              isOwnMessage ? styles.ownMessageText : styles.otherMessageText
+            ]}>
+              {item.content}
+            </Text>
+          )}
+          
+          {renderAttachments()}
+          
           <Text style={styles.messageTime}>
             {timeString}
           </Text>
@@ -819,7 +977,7 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
           }
         }
         
-        subtitle = 'Direct message';
+        subtitle = 'Nhắn tin riêng';
       } else {
         
         title = chat.name || chat.courseId?.name || 'Course Chat';
@@ -836,14 +994,12 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
         null;
       
       if (mentorIdValue && accessToken && refreshToken) {
-        console.log("DEBUG: Manually testing mentor fetch for:", mentorIdValue);
-        console.log("DEBUG: Raw mentorId data:", JSON.stringify(chat?.mentorId, null, 2));
+
         
         const mentorInfo = await fetchMentorInfo(mentorIdValue, accessToken, refreshToken);
-        console.log("DEBUG: Manual test result:", mentorInfo ? "SUCCESS" : "FAILED");
+       ;
         if (mentorInfo) {
-          console.log("DEBUG: Fetched mentor info:", JSON.stringify(mentorInfo, null, 2));
-          console.log("DEBUG: Mentor user info:", JSON.stringify(mentorInfo.user, null, 2));
+      
           
           
           setChat(currentChat => {
@@ -851,14 +1007,13 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
             return {...currentChat, mentorInfo};
           });
           
-          alert(`Mentor info fetched successfully!\nName: ${mentorInfo.user?.name || "Unknown"}\nEmail: ${mentorInfo.user?.email || "N/A"}`);
+         
         } else {
-          alert("Failed to fetch mentor info");
+          
         }
       } else {
-        console.log("DEBUG: Cannot test - missing mentorId or tokens");
-        console.log("DEBUG: Chat object structure:", chat ? Object.keys(chat) : "No chat data");
-        alert("Cannot test - missing mentorId or tokens");
+    
+       
       }
     };
     
@@ -941,11 +1096,11 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
 
   const renderMessageList = () => {
     if (!chat) {
-      console.log('No chat data available for rendering');
+    
       return null;
     }
     
-    console.log('Rendering message list, messages count:', chat.messages ? chat.messages.length : 0);
+  
     
     // Kiểm tra nếu không có messages hoặc messages không phải là một mảng
     if (!Array.isArray(chat.messages) || chat.messages.length === 0) {
@@ -966,7 +1121,7 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
       
       
       if (typeof message.sender === 'string') {
-        console.log('Found message with string sender, converting to object:', message._id);
+      
        
         (message as any).sender = { _id: message.sender };
       }
@@ -974,7 +1129,7 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
       return true;
     });
     
-    console.log(`Found ${chat.messages.length - validMessages.length} invalid messages that will be skipped`);
+   
     
    
     const messagesByDate: {[key: string]: Message[]} = {};
@@ -997,7 +1152,7 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
       flattenedMessages.push(...messages);
     });
     
-    console.log('Flattened messages count:', flattenedMessages.length);
+    
     
     return (
       <FlatList
@@ -1043,30 +1198,163 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
         return response.data.user._id;
       }
     } catch (error) {
-      console.error('Error retrieving user ID from token:', error);
+      
     }
     
     return null;
+  };
+
+  // Add attachment preview component
+  const renderAttachmentPreviews = () => {
+    if (attachments.length === 0) return null;
+    
+    return (
+      <View style={styles.attachmentPreviewContainer}>
+        <FlatList
+          data={attachments}
+          horizontal
+          renderItem={({ item, index }) => (
+            <View style={styles.attachmentPreview}>
+              {item.type === 'image' ? (
+                <Image 
+                  source={{ uri: `${URL_IMAGES}/${item.url}` }} 
+                  style={styles.previewImage} 
+                />
+              ) : (
+                <View style={styles.previewFileContainer}>
+                  <MaterialIcons 
+                    name={
+                      item.type === 'video' ? 'video-file' : 
+                      item.type === 'audio' ? 'audio-file' : 
+                      'insert-drive-file'
+                    } 
+                    size={24} 
+                    color="#0070e0" 
+                  />
+                  <Text style={styles.previewFileName} numberOfLines={1}>
+                    {item.filename}
+                  </Text>
+                </View>
+              )}
+              <TouchableOpacity 
+                style={styles.removeAttachmentButton}
+                onPress={() => removeAttachment(index)}
+              >
+                <Ionicons name="close-circle" size={20} color="#ff3d71" />
+              </TouchableOpacity>
+            </View>
+          )}
+          keyExtractor={(_, index) => `attachment-${index}`}
+          showsHorizontalScrollIndicator={false}
+        />
+      </View>
+    );
+  };
+
+  // Add a function to handle attachment viewing
+  const handleAttachmentPress = async (attachment: Attachment) => {
+    if (attachment.type === 'image') {
+      // For images, show full-screen viewer
+      setSelectedImage(`${URL_IMAGES}/${attachment.url}`);
+      setImageViewerVisible(true);
+    } else {
+      try {
+        // For other files (PDFs, etc.), download and open with appropriate viewer
+        const fileUrl = `${URL_VIDEO}/${attachment.type}s/${attachment.url}`;
+        console.log("FILEPDF:"+fileUrl)
+        // For web browser, we can simply open the URL
+        if (Platform.OS === 'web') {
+          window.open(fileUrl, '_blank');
+          return;
+        }
+        
+        // Try to open directly with the default app
+        try {
+          const supported = await Linking.canOpenURL(fileUrl);
+          if (supported) {
+            await Linking.openURL(fileUrl);
+            return;
+          }
+        } catch (error) {
+          
+        }
+        
+       
+        
+        try {
+          
+          const result = await WebBrowser.openBrowserAsync(fileUrl);
+          
+          return;
+        } catch (error) {
+          
+        }
+        
+        
+        try {
+        
+          const tempFilePath = `${FileSystem.cacheDirectory}${attachment.filename}`;
+          
+  
+          const downloadResult = await FileSystem.downloadAsync(
+            fileUrl,
+            tempFilePath
+          );
+          
+          if (downloadResult.status === 200) {
+            
+            const localUri = `file://${tempFilePath}`;
+            await Linking.openURL(localUri);
+          } else {
+            
+          }
+        } catch (error) {
+         
+        }
+      } catch (error) {
+     
+      }
+    }
+  };
+  
+  // Add image viewer component
+  const renderImageViewer = () => {
+    return (
+      <Modal
+        visible={imageViewerVisible}
+        transparent={true}
+        onRequestClose={() => setImageViewerVisible(false)}
+      >
+        <View style={styles.imageViewerContainer}>
+          <TouchableOpacity
+            style={styles.closeImageViewerButton}
+            onPress={() => setImageViewerVisible(false)}
+          >
+            <Ionicons name="close" size={24} color="#fff" />
+          </TouchableOpacity>
+          
+          {selectedImage && (
+            <Image
+              source={{ uri: selectedImage }}
+              style={styles.fullScreenImage}
+              resizeMode="contain"
+            />
+          )}
+        </View>
+      </Modal>
+    );
   };
 
   if (!fontsLoaded && !fontError) {
     return null;
   }
 
-  console.log('Render state:', { 
-    chatId, 
-    hasChat: !!chat, 
-    loading, 
-    error,
-    userId, 
-    socketConnected: !!socketRef.current
-  });
-
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
       
       {renderHeader()}
+      {renderImageViewer()}
       
       {loading ? (
         <View style={styles.loadingContainer}>
@@ -1111,7 +1399,26 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
         >
           {renderMessageList()}
           
+          {renderAttachmentPreviews()}
+          
           <View style={styles.inputContainer}>
+            <View style={styles.attachmentButtonsContainer}>
+              <TouchableOpacity 
+                style={styles.attachmentButton}
+                onPress={pickImage}
+                disabled={isUploading}
+              >
+                <MaterialIcons name="image" size={24} color="#0070e0" />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.attachmentButton}
+                onPress={pickDocument}
+                disabled={isUploading}
+              >
+                <MaterialIcons name="attach-file" size={24} color="#0070e0" />
+              </TouchableOpacity>
+            </View>
+            
             <TextInput
               style={styles.input}
               placeholder="Nhập tin nhắn..."
@@ -1120,17 +1427,27 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
               multiline
               maxLength={1000}
             />
-            <TouchableOpacity
-              style={[styles.sendButton, !message.trim() && styles.sendButtonDisabled]}
-              onPress={sendMessage}
-              disabled={!message.trim()}
-            >
-              <Ionicons
-                name="send"
-                size={20}
-                color={message.trim() ? '#fff' : '#ccc'}
-              />
-            </TouchableOpacity>
+            
+            {isUploading ? (
+              <View style={styles.loadingButton}>
+                <ActivityIndicator size="small" color="#fff" />
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={[
+                  styles.sendButton, 
+                  (!message.trim() && attachments.length === 0) && styles.sendButtonDisabled
+                ]}
+                onPress={sendMessage}
+                disabled={!message.trim() && attachments.length === 0}
+              >
+                <Ionicons
+                  name="send"
+                  size={20}
+                  color={message.trim() || attachments.length > 0 ? '#fff' : '#ccc'}
+                />
+              </TouchableOpacity>
+            )}
           </View>
         </KeyboardAvoidingView>
       )}
@@ -1369,6 +1686,114 @@ const styles = StyleSheet.create({
     fontFamily: 'Nunito_400Regular',
     color: '#999',
     textAlign: 'center',
+  },
+  attachmentButtonsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  attachmentButton: {
+    padding: 8,
+    marginRight: 4,
+  },
+  attachmentPreviewContainer: {
+    backgroundColor: '#fff',
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+  },
+  attachmentPreview: {
+    width: 80,
+    height: 80,
+    marginHorizontal: 6,
+    borderRadius: 8,
+    backgroundColor: '#f5f5f5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  previewImage: {
+    width: '100%',
+    height: '100%',
+  },
+  previewFileContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 4,
+  },
+  previewFileName: {
+    fontSize: 10,
+    fontFamily: 'Nunito_400Regular',
+    color: '#666',
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  removeAttachmentButton: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderRadius: 10,
+  },
+  attachmentsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginVertical: 4,
+  },
+  attachmentItem: {
+    width: 150,
+    height: 120,
+    marginRight: 8,
+    marginBottom: 8,
+    borderRadius: 8,
+    backgroundColor: '#f5f5f5',
+    overflow: 'hidden',
+  },
+  attachmentImage: {
+    width: '100%',
+    height: '100%',
+  },
+  attachmentFileContainer: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 8,
+  },
+  attachmentFileName: {
+    fontSize: 12,
+    fontFamily: 'Nunito_500Medium',
+    color: '#666',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  loadingButton: {
+    marginLeft: 12,
+    backgroundColor: '#0070e0',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  imageViewerContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullScreenImage: {
+    width: Dimensions.get('window').width,
+    height: Dimensions.get('window').height,
+  },
+  closeImageViewerButton: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    zIndex: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 20,
+    padding: 8,
   },
 });
 
