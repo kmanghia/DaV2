@@ -83,7 +83,7 @@ const MentorListScreen = () => {
       const refreshToken = await AsyncStorage.getItem('refresh_token');
       
       if (!accessToken || !refreshToken) {
-        Alert.alert('Thông báo', 'Vui lòng đăng nhập để xem danh sách mentor');
+        Alert.alert('Thông báo', 'Vui lòng đăng nhập để xem danh sách giảng viên');
         setLoading(false);
         return;
       }
@@ -110,7 +110,7 @@ const MentorListScreen = () => {
       }
     } catch (error) {
       console.error('Error fetching mentors:', error);
-      Alert.alert('Lỗi', 'Không thể tải danh sách mentor');
+      Alert.alert('Lỗi', 'Không thể tải danh sách giảng viên');
     } finally {
       setLoading(false);
     }
@@ -286,7 +286,7 @@ const MentorListScreen = () => {
         >
           <Ionicons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Danh sách Mentor</Text>
+        <Text style={styles.headerTitle}>Danh sách giảng viên</Text>
         <View style={{ width: 24 }} />
       </View>
       
@@ -511,7 +511,7 @@ const styles = StyleSheet.create({
     color: '#999',
   },
   chatButton: {
-    backgroundColor: '#666',
+    backgroundColor: '#2467EC',
     borderRadius: 8,
     paddingVertical: 10,
     flexDirection: 'row',

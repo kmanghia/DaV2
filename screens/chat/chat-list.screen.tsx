@@ -424,6 +424,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     marginBottom: 20,
+    marginTop: -30
   },
   title: {
     fontSize: 26,
@@ -506,7 +507,7 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   activeTab: {
-    backgroundColor: '#666',
+    backgroundColor: '#2467EC',
   },
   tabText: {
     fontSize: 14,
