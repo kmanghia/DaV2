@@ -18,7 +18,8 @@ import {
     Alert,
     Animated,
     Dimensions,
-    ActivityIndicator
+    ActivityIndicator,
+    FlatList
 } from "react-native"
 import { Colors } from 'react-native/Libraries/NewAppScreen';
 import app from "../../../package.json";
@@ -47,6 +48,8 @@ const CourseDetailsScreen = () => {
     const [showAllReviews, setShowAllReviews] = useState(false);
     const [mentorData, setMentorData] = useState<any>(null);
     const [loadingMentor, setLoadingMentor] = useState(false);
+    const [similarCourses, setSimilarCourses] = useState<CoursesType[]>([]);
+    const [loadingSimilar, setLoadingSimilar] = useState(false);
 
     useEffect(() => {
         if (user?.courses.find((i: any) => i._id === courseData._id)) {
@@ -87,10 +90,54 @@ const CourseDetailsScreen = () => {
                 setCheckPurchased(true);
             }
             setCourseInfo(_data);
+            
+            // Fetch similar courses once we have course data
+            if (_data && _data._id) {
+                fetchSimilarCourses(_data._id);
+            }
         } catch (error) {
             console.log(error);
         }
     }
+    const fetchSimilarCourses = async (courseId: string) => {
+        try {
+            setLoadingSimilar(true);
+            const accessToken = await AsyncStorage.getItem("access_token");
+            const refreshToken = await AsyncStorage.getItem("refresh_token");
+            
+            console.log("Fetching similar courses for courseId:", courseId);
+            
+            // URL chính xác là //similar, 
+            const response = await axios.get(`${URL_SERVER}/similar/${courseId}`, {
+                headers: {
+                    'access-token': accessToken,
+                    'refresh-token': refreshToken
+                }
+            });
+            
+            console.log("Similar courses API response:", response.data);
+            console.log("API response structure:", Object.keys(response.data));
+            
+            // Đọc dữ liệu trực tiếp từ recommendedCourses trả về từ API
+            if (response.data && response.data.success && response.data.recommendedCourses) {
+                console.log("Setting similar courses:", response.data.recommendedCourses);
+                setSimilarCourses(response.data.recommendedCourses);
+            } else {
+                console.log("No recommended courses found in response");
+            }
+        } catch (error) {
+            console.error("Error fetching similar courses:", error);
+            if (axios.isAxiosError(error)) {
+                console.error("Axios error details:", {
+                    message: error.message,
+                    response: error.response?.data,
+                    status: error.response?.status
+                });
+            }
+        } finally {
+            setLoadingSimilar(false);
+        }
+    };
 
     useEffect(() => {
         LoadCourse();
@@ -200,6 +247,87 @@ const CourseDetailsScreen = () => {
             fetchMentorDetails(mentorId);
         }
     }, [courseData]);
+
+    // Add this function to render a course card
+    const renderCourseCard = ({ item, index }: { item: any, index: number }) => {
+        if (!item) {
+            return null;
+        }
+        
+        return (
+            <TouchableOpacity 
+                style={styles.similarCourseCard}
+                onPress={() => {
+                    const courseWithId = {
+                        ...item,
+                        _id: item._id || `temp-${index}-${Date.now()}`,
+                    };
+                    router.push({
+                        pathname: "/(routes)/course-details",
+                        params: { item: JSON.stringify(courseWithId) }
+                    });
+                }}
+            >
+                <View style={styles.courseImageContainer}>
+                    <Image 
+                        source={{ 
+                            uri: item.thumbnail?.url ? 
+                                `${URL_IMAGES}/${item.thumbnail.url}` : 
+                                item.thumbnail ? `${URL_IMAGES}/${item.thumbnail}` :
+                                "https://via.placeholder.com/150"
+                        }}
+                        style={styles.similarCourseImage}
+                        resizeMode="cover"
+                    />
+                    {item.level && (
+                        <View style={styles.levelBadge}>
+                            <Text style={styles.levelText}>{item.level}</Text>
+                        </View>
+                    )}
+                </View>
+                <View style={styles.similarCourseInfo}>
+                    <Text 
+                        style={styles.similarCourseTitle}
+                        numberOfLines={2}
+                    >
+                        {item.name || "Khóa học"}
+                    </Text>
+                    <View style={styles.ratingContainer}>
+                        <View style={styles.starsWrap}>
+                            <FontAwesome name="star" size={12} color="#FFB800" />
+                            <Text style={styles.similarCourseRatingText}>
+                                {item.ratings?.toFixed(1) || "0.0"}
+                            </Text>
+                        </View>
+                        <View style={styles.enrollmentWrap}>
+                            <Ionicons name="people-outline" size={12} color="#666" />
+                            <Text style={styles.enrollmentText}>
+                                {item.purchased || 0}
+                            </Text>
+                        </View>
+                    </View>
+                    <View style={styles.priceRow}>
+                        <Text style={styles.similarCoursePrice}>
+                            {item.price?.toLocaleString() || "0"}đ
+                        </Text>
+                        {item.estimatedPrice && item.estimatedPrice > item.price && (
+                            <Text style={styles.similarOriginalPrice}>
+                                {item.estimatedPrice?.toLocaleString()}đ
+                            </Text>
+                        )}
+                    </View>
+                </View>
+            </TouchableOpacity>
+        );
+    };
+
+    // Monitor changes to similarCourses state
+    useEffect(() => {
+        console.log("similarCourses state updated:", similarCourses.length, "items");
+        similarCourses.forEach((course, index) => {
+            console.log(`Course ${index}:`, course?._id || 'no-id', course?.name);
+        });
+    }, [similarCourses]);
 
     return (
         <>
@@ -482,6 +610,44 @@ const CourseDetailsScreen = () => {
                                                 </View>
                                             ))}
                                         </View>
+                                    </View>
+                                    
+                                    {/* Similar Courses Section */}
+                                    <View style={styles.infoSection}>
+                                        <View style={styles.sectionTitleContainer}>
+                                            <Ionicons name="apps" size={22} color="#0070e0" />
+                                            <Text style={styles.sectionTitle}>
+                                                Khóa học tương tự
+                                            </Text>
+                                        </View>
+                                        
+                                        {loadingSimilar ? (
+                                            <View style={styles.loadingContainer}>
+                                                <ActivityIndicator size="small" color="#0070e0" />
+                                                <Text style={styles.loadingText}>Đang tải khóa học tương tự...</Text>
+                                            </View>
+                                        ) : (
+                                            <>
+                                                {similarCourses.length > 0 ? (
+                                                    <FlatList
+                                                        data={[...similarCourses].reverse()}
+                                                        renderItem={({ item, index }) => renderCourseCard({ item, index })}
+                                                        keyExtractor={(item, index) => item?._id?.toString() || `similar-course-${index}`}
+                                                        horizontal
+                                                        showsHorizontalScrollIndicator={false}
+                                                        contentContainerStyle={styles.similarCoursesContainer}
+                                                        snapToAlignment="start"
+                                                        decelerationRate="fast"
+                                                    />
+                                                ) : (
+                                                    <View style={styles.emptySimilarCourses}>
+                                                        <Text style={styles.emptySimilarText}>
+                                                            Không tìm thấy khóa học tương tự
+                                                        </Text>
+                                                    </View>
+                                                )}
+                                            </>
+                                        )}
                                     </View>
                                 </View>
                             )}
@@ -1098,6 +1264,115 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontFamily: 'Nunito_500Medium',
         textAlign: 'center',
+    },
+    similarCoursesContainer: {
+        paddingVertical: 12,
+    },
+    similarCourseCard: {
+        width: widthPercentageToDP(52),
+        marginRight: 15,
+        borderRadius: 15,
+        backgroundColor: '#fff',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
+        overflow: 'hidden',
+    },
+    courseImageContainer: {
+        position: 'relative',
+        width: '100%',
+        height: 110,
+    },
+    similarCourseImage: {
+        width: '100%',
+        height: '100%',
+        borderTopLeftRadius: 15,
+        borderTopRightRadius: 15,
+    },
+    levelBadge: {
+        position: 'absolute',
+        top: 10,
+        left: 10,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        paddingVertical: 3,
+        paddingHorizontal: 8,
+        borderRadius: 10,
+    },
+    levelText: {
+        color: '#fff',
+        fontSize: 10,
+        fontFamily: 'Nunito_600SemiBold',
+    },
+    similarCourseInfo: {
+        padding: 12,
+    },
+    similarCourseTitle: {
+        fontSize: 14,
+        fontFamily: 'Nunito_700Bold',
+        color: '#222',
+        marginBottom: 8,
+        height: 60,
+    },
+    ratingContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 8,
+    },
+    starsWrap: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    similarCourseRatingText: {
+        fontSize: 12,
+        fontFamily: 'Nunito_600SemiBold',
+        color: '#666',
+        marginLeft: 4,
+    },
+    enrollmentWrap: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    enrollmentText: {
+        fontSize: 12,
+        fontFamily: 'Nunito_500Medium',
+        color: '#666',
+        marginLeft: 4,
+    },
+    priceRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    similarCoursePrice: {
+        fontSize: 15,
+        fontFamily: 'Nunito_700Bold',
+        color: '#0070e0',
+    },
+    similarOriginalPrice: {
+        fontSize: 12,
+        fontFamily: 'Nunito_400Regular',
+        color: '#9e9e9e',
+        textDecorationLine: 'line-through',
+        marginLeft: 6,
+    },
+    loadingContainer: {
+        padding: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    emptySimilarCourses: {
+        padding: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#f9f9f9',
+        borderRadius: 12,
+    },
+    emptySimilarText: {
+        fontSize: 14,
+        color: '#666',
+        fontFamily: 'Nunito_500Medium',
     },
 });
 

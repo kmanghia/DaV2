@@ -19,6 +19,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
 
+// Extended type for tracking video progress per chapter
+interface VideoProgressState {
+    [chapterId: string]: {
+        hasWatched: boolean;
+        progress: number;
+    };
+}
+
 const styles = StyleSheet.create({
     container: {
         flex: 1,
@@ -352,6 +360,8 @@ const CourseAccessScreen = () => {
     const [isLessonListVisible, setIsLessonListVisible] = useState(false);
     const [videoProgress, setVideoProgress] = useState(0);
     const [hasWatchedEnough, setHasWatchedEnough] = useState(false);
+    // Track progress for each chapter independently
+    const [chaptersProgress, setChaptersProgress] = useState<VideoProgressState>({});
     
     const dispatch = useDispatch();
     const videoRef = useRef<Video>(null);
@@ -375,53 +385,116 @@ const CourseAccessScreen = () => {
         ]).start();
     }, []);
 
+    // Update hasWatchedEnough when switching chapters
     useEffect(() => {
         if (courseContentData[activeVideo]) {
-            loadVideoAndChapterState();
+            const currentChapterId = courseContentData[activeVideo]._id;
+            
+            // Reset current video progress
             setVideoProgress(0);
-            setHasWatchedEnough(false);
+            
+            // Get progress state for this specific chapter
+            const chapterState = chaptersProgress[currentChapterId];
+            if (chapterState && chapterState.hasWatched) {
+                setHasWatchedEnough(chapterState.hasWatched);
+                setVideoProgress(chapterState.progress);
+            } else {
+                // If no progress for this chapter, reset watched status
+                setHasWatchedEnough(false);
+            }
+            
+            // Load video data
+            loadVideoAndChapterState();
         }
-    }, [courseContentData[activeVideo], activeVideo])
+    }, [courseContentData[activeVideo], activeVideo]);
 
     const onPlaybackStatusUpdate = (status: any) => {
         if (status.isLoaded && !status.isBuffering) {
             const progress = status.positionMillis / status.durationMillis;
             setVideoProgress(progress);
             
-            if (progress >= 0.9) {
+            // Only set hasWatchedEnough for current chapter if not already completed
+            if ((progress >= 0.9 || status.didJustFinish) && !lessonInfo.isCompleted) {
+                const currentChapterId = courseContentData[activeVideo]._id;
+                
+                // Update progress for this specific chapter
+                setChaptersProgress(prev => ({
+                    ...prev,
+                    [currentChapterId]: {
+                        hasWatched: true,
+                        progress: progress
+                    }
+                }));
+                
                 setHasWatchedEnough(true);
-            }
-
-            if (status.didJustFinish) {
-                setHasWatchedEnough(true);
+                console.log(`Chapter ${currentChapterId}: Watched enough (${Math.round(progress*100)}%)`);
             }
         }
     };
 
-    const loadVideoAndChapterState = async  () => {
+    const loadVideoAndChapterState = async () => {
         try {
             let _lessonInfo = courseProgress?.chapters.find(chapter => chapter.chapterId === courseContentData[activeVideo]?._id);
             let _clone = {
-                chapterId: _lessonInfo?.chapterId,
-                isCompleted: _lessonInfo?.isCompleted
+                chapterId: _lessonInfo?.chapterId || courseContentData[activeVideo]?._id,
+                isCompleted: _lessonInfo?.isCompleted || false
             } as Chapter;
             setLessonInfo(_clone);
+            
+            // If lesson is already completed, no need to track progress
+            if (_clone.isCompleted) {
+                setHasWatchedEnough(true);
+            }
+            
             const accessToken = await AsyncStorage.getItem('access_token');
             const refreshToken = await AsyncStorage.getItem('refresh_token');
-            const response = await axios.get(`${URL_VIDEO}/api/files/${courseContentData[activeVideo].videoUrl}`, {
-                headers: {
-                    'access-token': accessToken,
-                    'refresh-token': refreshToken
+            
+            // Try up to 3 times to load the video if needed
+            let attempts = 0;
+            const maxAttempts = 3;
+            
+            while (attempts < maxAttempts) {
+                try {
+                    console.log(`Loading video attempt ${attempts + 1}...`);
+                    const response = await axios.get(`${URL_VIDEO}/api/files/${courseContentData[activeVideo].videoUrl}`, {
+                        headers: {
+                            'access-token': accessToken,
+                            'refresh-token': refreshToken
+                        }
+                    });
+                    
+                    if(response.data && response.data.url){
+                        setVideoData(response.data.url);
+                        break; // Success, exit the retry loop
+                    } else {
+                        console.log("No valid video URL received");
+                        attempts++;
+                        if (attempts < maxAttempts) {
+                            // Wait a bit between attempts
+                            await new Promise(resolve => setTimeout(resolve, 1000));
+                        }
+                    }
+                } catch (videoError) {
+                    console.log("Error loading video:", videoError);
+                    attempts++;
+                    if (attempts < maxAttempts) {
+                        // Wait a bit between attempts
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                    }
                 }
-            })
-            if(response.data){
-                setVideoData(response.data.url);
+            }
+            
+            if (attempts >= maxAttempts) {
+                Toast.show("Không thể tải video, vui lòng thử lại sau", {
+                    placement: "bottom",
+                    type: "error"
+                });
             }
         } catch (error) {
-            console.log(error);
+            console.log("Error loading video:", error);
             setIsLoading(false);
         }
-    }
+    };
 
     useFocusEffect(
         useCallback(() => {
@@ -554,44 +627,137 @@ const CourseAccessScreen = () => {
         }
     }
 
+    const handleNavigation = (direction: 'next' | 'prev') => {
+        // Reset video playback position but keep progress state per chapter
+        if (videoRef.current) {
+            videoRef.current.setPositionAsync(0);
+        }
+        
+        // Disable navigation temporarily to prevent multiple rapid clicks
+        setIsLoading(true);
+        
+        // Add a small delay to ensure any pending requests complete
+        setTimeout(() => {
+            if (direction === 'next' && activeVideo < courseContentData.length - 1) {
+                setActiveVideo(activeVideo + 1);
+            } else if (direction === 'prev' && activeVideo > 0) {
+                setActiveVideo(activeVideo - 1);
+            }
+            setIsLoading(false);
+        }, 500);
+    };
+    
     const OnMarkAsCompleted = async () => {
+        if (isLoading) return; // Prevent multiple rapid clicks
+        
         try {
+            setIsLoading(true);
+            
             const accessToken = await AsyncStorage.getItem('access_token');
             const refreshToken = await AsyncStorage.getItem('refresh_token');
-            const chapterId = lessonInfo.chapterId;
-            const courseId = courseProgress?.courseId;
-            await axios.put(`${URL_SERVER}/user/mark-chapter?courseId=${courseId}&chapterId=${chapterId}`, {}, {
+            
+            // Make sure we have valid IDs
+            const chapterId = courseContentData[activeVideo]?._id;
+            const courseId = data._id;
+            
+            if (!chapterId || !courseId) {
+                console.error("Missing chapterId or courseId");
+                Toast.show("Không thể đánh dấu hoàn thành bài học, thiếu thông tin!", {
+                    placement: "bottom",
+                    type: "error"
+                });
+                setIsLoading(false);
+                return;
+            }
+            
+            // Log request details for debugging
+            console.log("Mark chapter request:", {
+                chapterId,
+                courseId,
+                url: `${URL_SERVER}/user/mark-chapter?courseId=${courseId}&chapterId=${chapterId}`
+            });
+            
+            // Fix: Changed to POST request with body parameters instead of query parameters
+            const response = await axios({
+                method: 'put',
+                url: `${URL_SERVER}/user/mark-chapter`,
                 headers: {
                     'access-token': accessToken,
-                    'refresh-token': refreshToken
+                    'refresh-token': refreshToken,
+                    'Content-Type': 'application/json'
+                },
+                data: {
+                    courseId: courseId,
+                    chapterId: chapterId
                 }
             });
-            let newChapters = courseProgress?.chapters.filter(chapter => chapter.chapterId !== chapterId);
-            newChapters?.push({
-                chapterId: chapterId, 
-                isCompleted: true
-            } as Chapter);
-            let currCourseProgress = {
-                courseId: courseProgress?.courseId,
-                chapters: newChapters
-            } as Progress
-            setCourseProgress(currCourseProgress);
-            setLessonInfo({
-                chapterId: chapterId,
-                isCompleted: true
-            });
-            let newProgress = calculateProgressBar(newChapters ?? []); 
-            let payload = {
-                courseId: courseId + '',
-                progress: newProgress,
-                name: data.name,
-                total: courseProgress?.chapters.length ?? 0
+            
+            console.log("Mark chapter response:", response.data);
+            
+            if (response.data && response.data.success) {
+                // Update local progress state
+                let newChapters = courseProgress?.chapters ? [...courseProgress.chapters] : [];
+                // Filter out the current chapter if it exists
+                newChapters = newChapters.filter(chapter => chapter.chapterId !== chapterId);
+                // Add the updated chapter information
+                newChapters.push({
+                    chapterId: chapterId, 
+                    isCompleted: true
+                } as Chapter);
+                
+                // Update course progress
+                let currCourseProgress = {
+                    courseId: courseId,
+                    chapters: newChapters
+                } as Progress;
+                
+                setCourseProgress(currCourseProgress);
+                
+                // Update lesson info
+                setLessonInfo({
+                    chapterId: chapterId,
+                    isCompleted: true
+                });
+                
+                // Calculate and update progress
+                let newProgress = calculateProgressBar(newChapters); 
+                let payload = {
+                    courseId: courseId + '',
+                    progress: newProgress,
+                    name: data.name,
+                    total: newChapters.length
+                };
+                
+                dispatch(userActions.pushProgressOfUser(payload));
+                
+                // Show success message
+                Toast.show("Đã đánh dấu hoàn thành bài học!", {
+                    placement: "bottom",
+                    type: "success"
+                });
+            } else {
+                throw new Error("Failed to mark chapter as completed");
             }
-            dispatch(userActions.pushProgressOfUser(payload));
         } catch (error) {
-            console.log(error);
+            console.error("Error marking chapter as completed:", error);
+            
+            if (axios.isAxiosError(error)) {
+                console.error("Axios error details:", {
+                    message: error.message,
+                    status: error.response?.status,
+                    data: error.response?.data
+                });
+            }
+            
+            // Show error message
+            Toast.show("Không thể đánh dấu hoàn thành bài học, vui lòng thử lại!", {
+                placement: "bottom",
+                type: "error"
+            });
+        } finally {
+            setIsLoading(false);
         }
-    }
+    };
 
     const calculateProgressBar = (chapters: Chapter[]) => {
         let isCompleted = 0;
@@ -677,10 +843,19 @@ const CourseAccessScreen = () => {
                         )}
                     </Animated.View>
                     
+                    {/* Progress text for clarity */}
+                    {!lessonInfo.isCompleted && (
+                        <View style={{paddingHorizontal: 10, marginTop: 5}}>
+                            <Text style={{fontSize: 13, color: '#666', fontStyle: 'italic'}}>
+                                Bài học hiện tại: {hasWatchedEnough ? 'Đã xem đủ' : 'Chưa xem đủ'} ({Math.round(videoProgress * 100)}%)
+                            </Text>
+                        </View>
+                    )}
+                    
                     <View style={styles.navigationContainer}>
                         <TouchableOpacity
                             disabled={activeVideo === 0}
-                            onPress={() => setActiveVideo(activeVideo - 1)}
+                            onPress={() => handleNavigation('prev')}
                         >
                             <LinearGradient
                                 colors={activeVideo === 0 ? ['#a0a0a0', '#888888'] : ['#5D87E4', '#4776E6']}
@@ -697,7 +872,7 @@ const CourseAccessScreen = () => {
                         
                         <TouchableOpacity
                             disabled={activeVideo === courseContentData.length - 1}
-                            onPress={() => setActiveVideo(activeVideo + 1)}
+                            onPress={() => handleNavigation('next')}
                         >
                             <LinearGradient
                                 colors={(activeVideo === courseContentData.length - 1) ? ['#a0a0a0', '#888888'] : ['#E56767', '#D84848']}
@@ -841,7 +1016,7 @@ const CourseAccessScreen = () => {
                             {!lessonInfo.isCompleted && !hasWatchedEnough && (
                                 <View>
                                     <Text style={styles.progressText}>
-                                        Bạn đã xem {Math.round(videoProgress * 100)}% - Cần xem ít nhất 90% video để hoàn thành
+                                        Bạn đã xem {Math.round(videoProgress * 100)}% - Cần xem ít nhất 90% video để đánh dấu hoàn thành
                                     </Text>
                                     <View style={styles.progressBarContainer}>
                                         <View style={[styles.progressBar, {width: `${videoProgress * 100}%`}]} />
