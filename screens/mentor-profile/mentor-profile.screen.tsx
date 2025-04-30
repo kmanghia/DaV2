@@ -343,7 +343,7 @@ const MentorProfileScreen = () => {
                                     <View style={styles.reviewUser}>
                                         <Image 
                                             source={{ 
-                                                uri: user?.avatar?.url 
+                                                uri: item.user?.avatar?.url 
                                                     ? `${URL_IMAGES}/${item.user.avatar.url}` 
                                                     : `https://ui-avatars.com/api/?name=${encodeURIComponent(item.user?.name || 'User')}` 
                                             }} 

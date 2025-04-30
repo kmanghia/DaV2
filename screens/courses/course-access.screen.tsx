@@ -302,7 +302,27 @@ const styles = StyleSheet.create({
         color: "#1a1a2e",
         marginBottom: 8,
         fontFamily: "Nunito_600SemiBold"
-    }
+    },
+    progressBarContainer: {
+        marginTop: 15,
+        marginBottom: 5,
+        backgroundColor: '#e0e0e0',
+        height: 6,
+        borderRadius: 3,
+        overflow: 'hidden',
+    },
+    progressBar: {
+        height: '100%',
+        backgroundColor: '#2467EC',
+        borderRadius: 3,
+    },
+    progressText: {
+        textAlign: 'center',
+        fontSize: 14,
+        color: '#666',
+        marginBottom: 5,
+        fontFamily: "Nunito_500Medium"
+    },
 });
 
 const CourseAccessScreen = () => {
@@ -330,6 +350,8 @@ const CourseAccessScreen = () => {
         isCompleted: false
     });
     const [isLessonListVisible, setIsLessonListVisible] = useState(false);
+    const [videoProgress, setVideoProgress] = useState(0);
+    const [hasWatchedEnough, setHasWatchedEnough] = useState(false);
     
     const dispatch = useDispatch();
     const videoRef = useRef<Video>(null);
@@ -356,8 +378,25 @@ const CourseAccessScreen = () => {
     useEffect(() => {
         if (courseContentData[activeVideo]) {
             loadVideoAndChapterState();
+            setVideoProgress(0);
+            setHasWatchedEnough(false);
         }
     }, [courseContentData[activeVideo], activeVideo])
+
+    const onPlaybackStatusUpdate = (status: any) => {
+        if (status.isLoaded && !status.isBuffering) {
+            const progress = status.positionMillis / status.durationMillis;
+            setVideoProgress(progress);
+            
+            if (progress >= 0.9) {
+                setHasWatchedEnough(true);
+            }
+
+            if (status.didJustFinish) {
+                setHasWatchedEnough(true);
+            }
+        }
+    };
 
     const loadVideoAndChapterState = async  () => {
         try {
@@ -532,7 +571,6 @@ const CourseAccessScreen = () => {
                 chapterId: chapterId, 
                 isCompleted: true
             } as Chapter);
-            // Update lại các bài học hoàn thành để dùng cho các lần sau
             let currCourseProgress = {
                 courseId: courseProgress?.courseId,
                 chapters: newChapters
@@ -630,6 +668,7 @@ const CourseAccessScreen = () => {
                                 shouldPlay={false}
                                 isLooping={false}
                                 isMuted={false}
+                                onPlaybackStatusUpdate={onPlaybackStatusUpdate}
                             />
                         ) : (
                             <View style={{width: '100%', height: 200, backgroundColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center'}}>
@@ -782,21 +821,33 @@ const CourseAccessScreen = () => {
                                     <TouchableOpacity
                                         onPress={() => OnMarkAsCompleted()}
                                         style={{marginLeft: 'auto'}}
+                                        disabled={!hasWatchedEnough}
                                     >
                                         <LinearGradient
-                                            colors={['#4776E6', '#5D87E4']}
+                                            colors={hasWatchedEnough ? ['#4776E6', '#5D87E4'] : ['#a0a0a0', '#888888']}
                                             start={{ x: 0, y: 0 }}
                                             end={{ x: 1, y: 0 }}
                                             style={styles.actionButton}
                                         >
                                             <Text style={styles.textBtn}>
-                                                Đánh dấu hoàn thành
+                                                {hasWatchedEnough ? 'Đánh dấu hoàn thành' : 'Xem video để hoàn thành'}
                                             </Text>
                                             <Feather name="check" size={18} color="white" />
                                         </LinearGradient>
                                     </TouchableOpacity>
                                 )}
                             </View>
+                            
+                            {!lessonInfo.isCompleted && !hasWatchedEnough && (
+                                <View>
+                                    <Text style={styles.progressText}>
+                                        Bạn đã xem {Math.round(videoProgress * 100)}% - Cần xem ít nhất 90% video để hoàn thành
+                                    </Text>
+                                    <View style={styles.progressBarContainer}>
+                                        <View style={[styles.progressBar, {width: `${videoProgress * 100}%`}]} />
+                                    </View>
+                                </View>
+                            )}
                             
                             <View style={{marginTop: 20}}>
                                 <View style={styles.referenceContainer}>
