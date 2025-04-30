@@ -102,16 +102,24 @@ const styles = StyleSheet.create({
         fontSize: 14,
         marginBottom: 2,
     },
+    
+    actionButtons: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 10,
+    },
 })
 
 const HeaderComponent = () => {
     const [cartItems, setCartItems] = useState([]);
+    const [notifications, setNotifications] = useState([]);
     // const { user } = useUser();
     const [avatar, setAvatar] = useState('');
     const user = useSelector((state: any) => state.user);
     useFocusEffect(
         useCallback(() => {
             LoadCartItems();
+            LoadNotifications();
         }, [])
     );
 
@@ -134,6 +142,28 @@ const HeaderComponent = () => {
             setCartItems(cart);
         } catch (error) {
             console.log(error);
+        }
+    }
+
+    const LoadNotifications = async () => {
+        try {
+            const accessToken = await AsyncStorage.getItem("access_token");
+            const refreshToken = await AsyncStorage.getItem("refresh_token");
+            const response = await axios.get(`${URL_SERVER}/user-notifications`, {
+                headers: {
+                    'access-token': accessToken,
+                    'refresh-token': refreshToken
+                }
+            });
+            
+            // Filter unread notifications
+            const unreadNotifications = response.data.notifications.filter(
+                (notification: any) => notification.status === "unread"
+            );
+            
+            setNotifications(unreadNotifications);
+        } catch (error) {
+            console.log("Error loading notifications:", error);
         }
     }
 
@@ -170,19 +200,39 @@ const HeaderComponent = () => {
                     </Text>
                 </View>
             </View>
-            <TouchableOpacity
-                style={styles.bellButton}
-                onPress={() => router.push("/(routes)/cart")}
-            >
-                <Feather name="shopping-bag" size={24} color={"#2467EC"} />
-                {cartItems?.length > 0 && (
-                    <View style={styles.bellContainer}>
-                        <Text style={{ color: "#fff", fontSize: 12, fontWeight: "bold" }}>
-                            {cartItems.length}
-                        </Text>
-                    </View>
-                )}
-            </TouchableOpacity>
+            <View style={styles.actionButtons}>
+                <TouchableOpacity
+                    style={styles.bellButton}
+                    onPress={() => router.push({
+                        pathname: "/(routes)/notifications"
+                    })}
+                >
+                    <Feather name="bell" size={24} color={"#2467EC"} />
+                    {notifications.length > 0 && (
+                        <View style={styles.bellContainer}>
+                            <Text style={{ color: "#fff", fontSize: 12, fontWeight: "bold" }}>
+                                {notifications.length > 99 ? "99+" : notifications.length}
+                            </Text>
+                        </View>
+                    )}
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                    style={styles.bellButton}
+                    onPress={() => router.push({
+                        pathname: "/(routes)/cart"
+                    })}
+                >
+                    <Feather name="shopping-bag" size={24} color={"#2467EC"} />
+                    {cartItems?.length > 0 && (
+                        <View style={styles.bellContainer}>
+                            <Text style={{ color: "#fff", fontSize: 12, fontWeight: "bold" }}>
+                                {cartItems.length}
+                            </Text>
+                        </View>
+                    )}
+                </TouchableOpacity>
+            </View>
         </View>
     )
 }
