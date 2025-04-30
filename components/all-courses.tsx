@@ -15,7 +15,7 @@ import * as userActions from "../utils/store/actions/user.actions";
 
 interface AllCoursesProps {
     displayMode?: "vertical" | "horizontal";
-    category?: "featured" | "new" | "popular" | "all";
+    category?: "featured" | "new" | "popular" | "all" | "recommended";
     limit?: number;
     hideViewAll?: boolean;
 }
@@ -34,8 +34,12 @@ const AllCourses = ({
     
     useFocusEffect(
         useCallback(() => {
-            loadAllCourses();
-        }, [])
+            if (category === "recommended") {
+                loadRecommendedCourses();
+            } else {
+                loadAllCourses();
+            }
+        }, [category])
     );
 
     useEffect(() => {
@@ -61,6 +65,9 @@ const AllCourses = ({
             case "popular":
                 result = result.sort((a, b) => (b.purchased || 0) - (a.purchased || 0));
                 break;
+            case "recommended":
+                // Recommended courses are already filtered from the API
+                break;
             default:
                 break;
         }
@@ -78,6 +85,75 @@ const AllCourses = ({
             setCourses([...response.data.courses]);
         } catch (error) {
             console.log(error);
+        }
+    }
+
+    const loadRecommendedCourses = async () => {
+        try {
+            const accessToken = await AsyncStorage.getItem('access_token');
+            const refreshToken = await AsyncStorage.getItem('refresh_token');
+            
+            if (!accessToken) {
+                // If user is not logged in, fall back to all courses
+                loadAllCourses();
+                return;
+            }
+            
+            // Lấy danh sách khóa học đã mua của user trước
+            const userProgressResponse = await axios.get(`${URL_SERVER}/user/progress`, {
+                headers: {
+                    'access-token': accessToken,
+                    'refresh-token': refreshToken
+                }
+            });
+            
+            // Lấy danh sách ID khóa học đã mua
+            let enrolledCourseIds: string[] = [];
+            if (userProgressResponse.data.response && userProgressResponse.data.response.progress) {
+                enrolledCourseIds = userProgressResponse.data.response.progress.map((item: Progress) => item.courseId);
+            }
+            
+            console.log("Enrolled course IDs:", enrolledCourseIds);
+            
+            // Lấy khóa học đề xuất
+            const response = await axios.get(`${URL_SERVER}/recommender/get-recommendations`, {
+                headers: {
+                    'access-token': accessToken,
+                    'refresh-token': refreshToken
+                }
+            });
+            
+            console.log("Recommended courses response:", response.data);
+            
+            let recommendedCourses: CoursesType[] = [];
+            
+            if (response.data && response.data.recommendedCourses) {
+                recommendedCourses = response.data.recommendedCourses;
+            } else if (response.data && response.data.recommendations) {
+                recommendedCourses = response.data.recommendations;
+            } else {
+                // Fall back to all courses if no recommendations
+                loadAllCourses();
+                return;
+            }
+            
+            // Lọc bỏ các khóa học đã mua
+            const filteredRecommendations = recommendedCourses.filter(
+                course => !enrolledCourseIds.includes(course._id)
+            );
+            
+            console.log(`Found ${recommendedCourses.length} recommendations, filtered to ${filteredRecommendations.length} after removing enrolled courses`);
+            
+            if (filteredRecommendations.length > 0) {
+                setCourses(filteredRecommendations);
+            } else {
+                // Nếu sau khi lọc không còn khóa học nào, lấy tất cả khóa học
+                loadAllCourses();
+            }
+        } catch (error) {
+            console.log("Error fetching recommendations:", error);
+            // Fall back to all courses on error
+            loadAllCourses();
         }
     }
 

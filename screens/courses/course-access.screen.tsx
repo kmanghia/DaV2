@@ -8,7 +8,7 @@ import { Feather, FontAwesome, AntDesign, MaterialIcons } from "@expo/vector-ico
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { Animated, Dimensions, FlatList, Linking, Modal, PanResponder, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native"
+import { Animated, Dimensions, FlatList, Linking, Modal, PanResponder, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator } from "react-native"
 import { widthPercentageToDP } from "react-native-responsive-screen";
 import { Toast } from "react-native-toast-notifications";
 import app from "../../app.json";
@@ -335,6 +335,7 @@ const styles = StyleSheet.create({
 
 const CourseAccessScreen = () => {
     const [isLoading, setIsLoading] = useState(false);
+    const [isMarkingCompleted, setIsMarkingCompleted] = useState(false);
     const { user } = useUser();
     const { courseData, courseId } = useLocalSearchParams();
     const data: CoursesType = JSON.parse(courseData as string);
@@ -648,10 +649,10 @@ const CourseAccessScreen = () => {
     };
     
     const OnMarkAsCompleted = async () => {
-        if (isLoading) return; // Prevent multiple rapid clicks
+        if (isMarkingCompleted) return;
         
         try {
-            setIsLoading(true);
+            setIsMarkingCompleted(true);
             
             const accessToken = await AsyncStorage.getItem('access_token');
             const refreshToken = await AsyncStorage.getItem('refresh_token');
@@ -666,7 +667,7 @@ const CourseAccessScreen = () => {
                     placement: "bottom",
                     type: "error"
                 });
-                setIsLoading(false);
+                setIsMarkingCompleted(false);
                 return;
             }
             
@@ -755,7 +756,7 @@ const CourseAccessScreen = () => {
                 type: "error"
             });
         } finally {
-            setIsLoading(false);
+            setIsMarkingCompleted(false);
         }
     };
 
@@ -996,7 +997,7 @@ const CourseAccessScreen = () => {
                                     <TouchableOpacity
                                         onPress={() => OnMarkAsCompleted()}
                                         style={{marginLeft: 'auto'}}
-                                        disabled={!hasWatchedEnough}
+                                        disabled={!hasWatchedEnough || isMarkingCompleted}
                                     >
                                         <LinearGradient
                                             colors={hasWatchedEnough ? ['#4776E6', '#5D87E4'] : ['#a0a0a0', '#888888']}
@@ -1004,10 +1005,16 @@ const CourseAccessScreen = () => {
                                             end={{ x: 1, y: 0 }}
                                             style={styles.actionButton}
                                         >
-                                            <Text style={styles.textBtn}>
-                                                {hasWatchedEnough ? 'Đánh dấu hoàn thành' : 'Xem video để hoàn thành'}
-                                            </Text>
-                                            <Feather name="check" size={18} color="white" />
+                                            {isMarkingCompleted ? (
+                                                <ActivityIndicator size="small" color="white" />
+                                            ) : (
+                                                <>
+                                                    <Text style={styles.textBtn}>
+                                                        {hasWatchedEnough ? 'Đánh dấu hoàn thành' : 'Xem video để hoàn thành'}
+                                                    </Text>
+                                                    <Feather name="check" size={18} color="white" />
+                                                </>
+                                            )}
                                         </LinearGradient>
                                     </TouchableOpacity>
                                 )}

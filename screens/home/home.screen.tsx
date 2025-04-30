@@ -83,6 +83,23 @@ const HomeScreen = () => {
                     </View>
                     <AllCourses displayMode="horizontal" category="popular" limit={5} hideViewAll={true} />
                 </View>
+                
+                {/* Khóa học gợi ý section */}
+                <View style={styles.sectionContainer}>
+                    <View style={styles.sectionHeader}>
+                        <View>
+                            <Text style={styles.sectionTitle}>Khóa học gợi ý</Text>
+                            <Text style={styles.sectionSubtitle}>Dựa trên sở thích và hoạt động của bạn</Text>
+                        </View>
+                        <TouchableOpacity 
+                            onPress={() => router.push("/(tabs)/search")}
+                            style={styles.viewAllButton}
+                        >
+                            <Text style={styles.viewAllText}>Xem tất cả</Text>
+                        </TouchableOpacity>
+                    </View>
+                    <AllCourses displayMode="horizontal" category="recommended" limit={5} hideViewAll={true} />
+                </View>
             </ScrollView>
         </View>
     )
