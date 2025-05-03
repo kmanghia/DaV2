@@ -6,7 +6,7 @@ import { URL_SERVER } from "@/utils/url";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { useFocusEffect, router } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View, StatusBar, SafeAreaView, Image } from "react-native";
 import { AnimatedCircularProgress } from "react-native-circular-progress";
 import * as Progress from "react-native-progress";
@@ -15,14 +15,87 @@ import {
     widthPercentageToDP as wp,
     heightPercentageToDP as hp,
 } from "react-native-responsive-screen";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 import { AntDesign, Feather, FontAwesome5, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import * as userActions from '../../../utils/store/actions/user.actions';
 
 const EnrolledCoursesScreen = () => {
     const [loader, setLoader] = useState(false);
+    const [coursesData, setCoursesData] = useState<any[]>([]);
     const { loading } = useUser();
     const progresses = useSelector((state: any) => state.user.progress);
+    const dispatch = useDispatch();
+    
+    // Log dữ liệu progresses để debug
+    console.log('Progress data:', JSON.stringify(progresses, null, 2));
+    
+    useFocusEffect(
+        useCallback(() => {
+            loadEnrolledCourses();
+        }, [])
+    );
+    
+    const loadEnrolledCourses = async () => {
+        try {
+            setLoader(true);
+            const accessToken = await AsyncStorage.getItem('access_token');
+            const refreshToken = await AsyncStorage.getItem('refresh_token');
+            
+            // Lấy danh sách khóa học đã đăng ký và tiến độ học tập
+            const response = await axios.get(`${URL_SERVER}/user/progress`, {
+                headers: {
+                    'access-token': accessToken,
+                    'refresh-token': refreshToken
+                }
+            });
+            
+            if (response.data.response && response.data.response.progress) {
+                const progressData = response.data.response.progress;
+                
+                // Lấy thông tin chi tiết của các khóa học
+                const courseIds = progressData.map((item: any) => item.courseId);
+                
+                if (courseIds.length > 0) {
+                    const coursesResponse = await axios.get(`${URL_SERVER}/get-courses`);
+                    
+                    if (coursesResponse.data && coursesResponse.data.courses) {
+                        const allCourses = coursesResponse.data.courses;
+                        
+                        // Lọc ra chỉ các khóa học đã đăng ký
+                        const enrolledCourses = allCourses.filter((course: any) => 
+                            courseIds.includes(course._id)
+                        );
+                        
+                        setCoursesData(enrolledCourses);
+                        
+                        // Cập nhật Redux store với thông tin đầy đủ
+                        const updatedProgress = progressData.map((progress: any) => {
+                            const course = enrolledCourses.find((c: any) => c._id === progress.courseId);
+                            let completedChapters = 0;
+                            progress.chapters.forEach((chapter: any) => {
+                                if (chapter.isCompleted) completedChapters++;
+                            });
+                            
+                            return {
+                                courseId: progress.courseId,
+                                progress: completedChapters / progress.chapters.length,
+                                name: course ? course.name : 'Khóa học',
+                                total: progress.chapters.length
+                            };
+                        });
+                        
+                        dispatch(userActions.saveProgressOfUser(updatedProgress));
+                    }
+                }
+            }
+            
+            setLoader(false);
+        } catch (error) {
+            console.error('Error loading enrolled courses:', error);
+            setLoader(false);
+        }
+    };
 
     return (
         <SafeAreaView style={styles.container}>

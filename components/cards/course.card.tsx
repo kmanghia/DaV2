@@ -82,7 +82,10 @@ export default function CourseCard({ item, isHorizontal = false }: CourseCardPro
             
             const accessToken = await AsyncStorage.getItem('access_token');
             const refreshToken = await AsyncStorage.getItem('refresh_token');
-            const response = await axios.post(`${URL_SERVER}/wishlist`, {
+            
+            console.log("Thêm yêu thích khóa học:", item._id);
+            
+            const response = await axios.post(`${URL_SERVER}/wishlist/course`, {
                 courseId: item._id
             }, {
                 headers: {
@@ -90,14 +93,26 @@ export default function CourseCard({ item, isHorizontal = false }: CourseCardPro
                     'refresh-token': refreshToken
                 }
             });
-            const data = {
-                _id: response.data.data._id,
-                userId: response.data.userId,
-                courseId: item._id
+            
+            console.log("Response thêm yêu thích:", response.data);
+            
+            if (response.data.success) {
+                const data = {
+                    _id: response.data.data._id,
+                    userId: response.data.data.userId || '',
+                    courseId: item._id
+                }
+                dispatch(userActions.pushWishCourse(data));
+                setWishState(true);
+                setIdWishCourse(response.data.data._id);
             }
-            dispatch(userActions.pushWishCourse(data));
         } catch (error) {
-            console.log(error);
+            console.log("Lỗi khi thêm yêu thích:", error);
+            
+            if (axios.isAxiosError(error)) {
+                console.log("Chi tiết lỗi:", error.response?.data);
+                console.log("Status code:", error.response?.status);
+            }
         }
     }
 
@@ -119,19 +134,60 @@ export default function CourseCard({ item, isHorizontal = false }: CourseCardPro
             
             const accessToken = await AsyncStorage.getItem('access_token');
             const refreshToken = await AsyncStorage.getItem('refresh_token');
-            await axios.delete(`${URL_SERVER}/wishlist?id=${idWishCourse}`, {
-                headers: {
-                    'access-token': accessToken,
-                    'refresh-token': refreshToken
-                }
-            });
+            
+            console.log("Xóa yêu thích cho khóa học ID:", item._id);
+            
+            // Phương pháp 1: Sử dụng API endpoint cũ nếu có ID
+            if (idWishCourse) {
+                console.log("Xóa theo ID:", idWishCourse);
+                await axios.delete(`${URL_SERVER}/wishlist?id=${idWishCourse}`, {
+                    headers: {
+                        'access-token': accessToken,
+                        'refresh-token': refreshToken
+                    }
+                });
+            } 
+            // Phương pháp 2: Sử dụng API endpoint mới (sử dụng nếu không có ID)
+            else {
+                console.log("Xóa theo courseId và type");
+                await axios.delete(`${URL_SERVER}/wishlist/remove`, {
+                    headers: {
+                        'access-token': accessToken,
+                        'refresh-token': refreshToken,
+                        'Content-Type': 'application/json'
+                    },
+                    data: {
+                        courseId: item._id,
+                        type: 'course'
+                    }
+                });
+            }
+            
+            // Cập nhật Redux state
             const data = {
                 _id: idWishCourse,
             }
             dispatch(userActions.removeWishCourse(data));
             setWishState(false);
+            setIdWishCourse('');
+            
         } catch (error) {
-            console.log(error);
+            console.log("Lỗi khi xóa yêu thích:", error);
+            
+            if (axios.isAxiosError(error)) {
+                console.log("Chi tiết lỗi:", error.response?.data);
+                console.log("Status code:", error.response?.status);
+                
+                // Nếu lỗi 404, vẫn xóa trạng thái yêu thích ở UI
+                if (error.response?.status === 404) {
+                    const data = {
+                        _id: idWishCourse,
+                    }
+                    dispatch(userActions.removeWishCourse(data));
+                    setWishState(false);
+                    setIdWishCourse('');
+                }
+            }
         }
     }
 

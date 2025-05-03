@@ -331,13 +331,28 @@ const styles = StyleSheet.create({
         marginBottom: 5,
         fontFamily: "Nunito_500Medium"
     },
+    favoriteButton: {
+        width: 45,
+        height: 45,
+        borderRadius: 22.5,
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        elevation: 4,
+    },
 });
 
 const CourseAccessScreen = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [isMarkingCompleted, setIsMarkingCompleted] = useState(false);
     const { user } = useUser();
-    const { courseData, courseId } = useLocalSearchParams();
+    const { courseData, courseId, lessonId } = useLocalSearchParams();
     const data: CoursesType = JSON.parse(courseData as string);
     const [courseReviews, setCourseReviews] = useState<ReviewType[]>(data?.reviews ? data.reviews : []);
 
@@ -363,6 +378,8 @@ const CourseAccessScreen = () => {
     const [hasWatchedEnough, setHasWatchedEnough] = useState(false);
     // Track progress for each chapter independently
     const [chaptersProgress, setChaptersProgress] = useState<VideoProgressState>({});
+    const [isLessonFavorited, setIsLessonFavorited] = useState(false);
+    const [isFavoritingLesson, setIsFavoritingLesson] = useState(false);
     
     const dispatch = useDispatch();
     const videoRef = useRef<Video>(null);
@@ -512,6 +529,25 @@ const CourseAccessScreen = () => {
             subscription();
         }, [])
     )
+
+    // Thêm useEffect để xử lý khi có lessonId được truyền vào
+    useEffect(() => {
+        if (lessonId && courseContentData.length > 0) {
+            console.log("Jumping to specific lesson ID:", lessonId);
+            
+            // Tìm chỉ mục của bài học trong courseContentData
+            const lessonIndex = courseContentData.findIndex(
+                lesson => lesson._id === lessonId
+            );
+            
+            if (lessonIndex !== -1) {
+                console.log("Found lesson at index:", lessonIndex);
+                setActiveVideo(lessonIndex);
+            } else {
+                console.log("Lesson not found in course content");
+            }
+        }
+    }, [lessonId, courseContentData]);
 
     const loadProgressOfUser = async () => {
         try {
@@ -799,6 +835,109 @@ const CourseAccessScreen = () => {
         ) || false;
     };
 
+    // Kiểm tra trạng thái yêu thích khi chuyển bài học
+    useEffect(() => {
+        if (courseContentData[activeVideo]) {
+            checkLessonFavoriteStatus();
+        }
+    }, [courseContentData, activeVideo]);
+    
+    // Hàm kiểm tra trạng thái yêu thích
+    const checkLessonFavoriteStatus = async () => {
+        if (!courseContentData[activeVideo] || !courseContentData[activeVideo]._id) return;
+        
+        try {
+            const accessToken = await AsyncStorage.getItem("access_token");
+            const refreshToken = await AsyncStorage.getItem("refresh_token");
+            
+            const currentLessonId = courseContentData[activeVideo]._id;
+            
+            const response = await axios.get(
+                `${URL_SERVER}/wishlist/status?type=lesson&courseId=${courseId}&lessonId=${currentLessonId}`, 
+                {
+                    headers: {
+                        "access-token": accessToken,
+                        "refresh-token": refreshToken
+                    }
+                }
+            );
+            
+            if (response.data && response.data.success) {
+                setIsLessonFavorited(response.data.isFavorited);
+            }
+        } catch (error) {
+            console.log("Error checking favorite status:", error);
+        }
+    };
+    
+    // Hàm thêm/xóa yêu thích
+    const toggleLessonFavorite = async () => {
+        if (isFavoritingLesson) return;
+        
+        try {
+            setIsFavoritingLesson(true);
+            const accessToken = await AsyncStorage.getItem("access_token");
+            const refreshToken = await AsyncStorage.getItem("refresh_token");
+            
+            const currentLessonId = courseContentData[activeVideo]._id;
+            
+            if (isLessonFavorited) {
+                // Xóa khỏi danh sách yêu thích
+                const response = await axios.delete(`${URL_SERVER}/wishlist/remove`, {
+                    headers: {
+                        "access-token": accessToken,
+                        "refresh-token": refreshToken,
+                        "Content-Type": "application/json"
+                    },
+                    data: {
+                        courseId: courseId,
+                        lessonId: currentLessonId,
+                        type: 'lesson'
+                    }
+                });
+                
+                if (response.data.success) {
+                    setIsLessonFavorited(false);
+                    Toast.show("Đã xóa bài học khỏi danh sách yêu thích", {
+                        placement: "bottom",
+                        type: "success"
+                    });
+                }
+            } else {
+                // Thêm vào danh sách yêu thích
+                const response = await axios.post(
+                    `${URL_SERVER}/wishlist/lesson`,
+                    {
+                        courseId: courseId,
+                        lessonId: currentLessonId
+                    },
+                    {
+                        headers: {
+                            "access-token": accessToken,
+                            "refresh-token": refreshToken
+                        }
+                    }
+                );
+                
+                if (response.data.success) {
+                    setIsLessonFavorited(true);
+                    Toast.show("Đã thêm bài học vào danh sách yêu thích", {
+                        placement: "bottom",
+                        type: "success"
+                    });
+                }
+            }
+        } catch (error) {
+            console.log("Error toggling favorite:", error);
+            Toast.show("Có lỗi xảy ra khi cập nhật yêu thích", {
+                placement: "bottom",
+                type: "error"
+            });
+        } finally {
+            setIsFavoritingLesson(false);
+        }
+    };
+
     return (
         <>
             {isLoading ? (
@@ -974,6 +1113,29 @@ const CourseAccessScreen = () => {
                                             Kiểm tra
                                         </Text>
                                         <AntDesign name="form" size={16} color="white" />
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                                
+                                {/* Nút yêu thích bài học */}
+                                <TouchableOpacity
+                                    onPress={toggleLessonFavorite}
+                                    disabled={isFavoritingLesson}
+                                >
+                                    <LinearGradient
+                                        colors={isLessonFavorited ? ['#FF6B6B', '#FF8E8E'] : ['#F0F0F0', '#E0E0E0']}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 0 }}
+                                        style={styles.favoriteButton}
+                                    >
+                                        {isFavoritingLesson ? (
+                                            <ActivityIndicator size="small" color={isLessonFavorited ? "white" : "#666"} />
+                                        ) : (
+                                            <AntDesign 
+                                                name={isLessonFavorited ? "heart" : "hearto"} 
+                                                size={20} 
+                                                color={isLessonFavorited ? "white" : "#666"} 
+                                            />
+                                        )}
                                     </LinearGradient>
                                 </TouchableOpacity>
                                 
