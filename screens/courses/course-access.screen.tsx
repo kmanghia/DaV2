@@ -715,17 +715,10 @@ const CourseAccessScreen = () => {
             });
             
             // Fix: Changed to POST request with body parameters instead of query parameters
-            const response = await axios({
-                method: 'put',
-                url: `${URL_SERVER}/user/mark-chapter`,
+            const response = await axios.put(`${URL_SERVER}/user/mark-chapter?courseId=${courseId}&chapterId=${chapterId}`, {}, {
                 headers: {
                     'access-token': accessToken,
-                    'refresh-token': refreshToken,
-                    'Content-Type': 'application/json'
-                },
-                data: {
-                    courseId: courseId,
-                    chapterId: chapterId
+                    'refresh-token': refreshToken
                 }
             });
             
