@@ -71,4 +71,5 @@ type CoursesType = {
     courseData: CourseDataType[];
     ratings?: number;
     purchased: number;
+    isFree?: boolean;
 };
