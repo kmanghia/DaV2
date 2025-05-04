@@ -268,8 +268,8 @@ export default function CourseCard({ item, isHorizontal = false }: CourseCardPro
                         </View>
                     ) : (
                         <View style={styles.horizontalPriceContainer}>
-                            <Text style={styles.price}>{item?.price.toLocaleString()}đ</Text>
-                            <Text style={styles.estimatedPrice}>{item?.estimatedPrice?.toLocaleString()}đ</Text>
+                            <Text style={styles.price}>{item?.isFree ? "Free" : `${item?.price.toLocaleString()}đ`}</Text>
+                            {!item?.isFree && <Text style={styles.estimatedPrice}>{item?.estimatedPrice?.toLocaleString()}đ</Text>}
                         </View>
                     )}
                 </View>
@@ -392,18 +392,20 @@ export default function CourseCard({ item, isHorizontal = false }: CourseCardPro
                     >
                         <View style={{ flexDirection: "row" }}>
                             <Text style={{ paddingTop: 10, fontSize: 18, fontWeight: "600" }}>
-                                {item?.price?.toLocaleString()}đ
+                                {item?.isFree ? "Free" : `${item?.price?.toLocaleString()}đ`}
                             </Text>
-                            <Text
-                                style={{
-                                    paddingLeft: 5,
-                                    textDecorationLine: "line-through",
-                                    fontSize: 16,
-                                    fontWeight: "400",
-                                }}
-                            >
-                                {item?.estimatedPrice?.toLocaleString()}đ
-                            </Text>
+                            {!item?.isFree && (
+                                <Text
+                                    style={{
+                                        paddingLeft: 5,
+                                        textDecorationLine: "line-through",
+                                        fontSize: 16,
+                                        fontWeight: "400",
+                                    }}
+                                >
+                                    {item?.estimatedPrice?.toLocaleString()}đ
+                                </Text>
+                            )}
                         </View>
                         <View
                             style={{

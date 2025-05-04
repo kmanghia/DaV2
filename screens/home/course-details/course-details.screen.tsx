@@ -173,6 +173,61 @@ const CourseDetailsScreen = () => {
         }
     }
 
+    // Activate a free course directly without cart
+    const activateFreeCourse = async () => {
+        try {
+            const accessToken = await AsyncStorage.getItem("access_token");
+            const refreshToken = await AsyncStorage.getItem("refresh_token");
+
+            // Create order for the free course
+            const response = await axios.post(`${URL_SERVER}/create-mobile-order`, {
+                courseId: courseData._id,
+                payment_info: {
+                    isFree: true
+                }
+            }, {
+                headers: {
+                    "access-token": accessToken,
+                    "refresh-token": refreshToken
+                }
+            });
+
+            if (response.data.success) {
+                // Add to user's progress
+                const payload = {
+                    courseId: courseData._id,
+                    progress: 0,
+                    name: courseData.name,
+                    total: courseData.courseData?.length || 0,
+                };
+                
+                // Update UI to show purchased state
+                setCheckPurchased(true);
+                
+                // Show success message and redirect to course access
+                Alert.alert(
+                    "Kích hoạt thành công",
+                    "Khóa học đã được kích hoạt. Bạn có thể xem ngay bây giờ.",
+                    [
+                        {
+                            text: "Xem khóa học",
+                            onPress: () => router.push({
+                                pathname: "/(routes)/course-access",
+                                params: { courseData: JSON.stringify(courseData), courseId: courseData._id }
+                            })
+                        }
+                    ]
+                );
+                
+                // Refresh courses list
+                await LoadCourse();
+            }
+        } catch (error) {
+            console.log("Error activating free course:", error);
+            Alert.alert("Lỗi", "Có lỗi xảy ra khi kích hoạt khóa học. Vui lòng thử lại sau.");
+        }
+    }
+
     let [fontsLoaded, fontError] = useFonts({
         Raleway_600SemiBold,
         Raleway_700Bold,
@@ -308,9 +363,9 @@ const CourseDetailsScreen = () => {
                     </View>
                     <View style={styles.priceRow}>
                         <Text style={styles.similarCoursePrice}>
-                            {item.price?.toLocaleString() || "0"}đ
+                            {item.isFree ? "Free" : `${item.price?.toLocaleString() || "0"}đ`}
                         </Text>
-                        {item.estimatedPrice && item.estimatedPrice > item.price && (
+                        {!item.isFree && item.estimatedPrice && item.estimatedPrice > item.price && (
                             <Text style={styles.similarOriginalPrice}>
                                 {item.estimatedPrice?.toLocaleString()}đ
                             </Text>
@@ -398,22 +453,24 @@ const CourseDetailsScreen = () => {
                             <View style={styles.priceContainer}>
                                 <View style={styles.priceWrapper}>
                                     <Text style={styles.currentPrice}>
-                                            {courseData?.price?.toLocaleString()}đ
-                                        </Text>
-                                    <Text style={styles.originalPrice}>
+                                        {courseData?.isFree ? "Free" : `${courseData?.price?.toLocaleString()}đ`}
+                                    </Text>
+                                    {!courseData?.isFree && (
+                                        <Text style={styles.originalPrice}>
                                             {courseData?.estimatedPrice?.toLocaleString()}đ
                                         </Text>
-                                    {discountPercentage > 0 && (
+                                    )}
+                                    {!courseData?.isFree && discountPercentage > 0 && (
                                         <View style={styles.discountBadge}>
                                             <Text style={styles.discountText}>-{discountPercentage}%</Text>
-                                    </View>
+                                        </View>
                                     )}
                                 </View>
                                 <View style={styles.studentContainer}>
                                     <Ionicons name="people" size={18} color="#666" />
                                     <Text style={styles.studentCount}>
                                         {courseData?.purchased} học viên
-                                </Text>
+                                    </Text>
                                 </View>
                             </View>
 
@@ -764,6 +821,16 @@ const CourseDetailsScreen = () => {
                                     Xem khóa học
                                 </Text>
                                 <Ionicons name="arrow-forward" size={20} color="#fff" style={styles.buttonIcon} />
+                            </TouchableOpacity>
+                        ) : courseData?.isFree ? (
+                            <TouchableOpacity
+                                style={[styles.actionButton, { backgroundColor: '#4CAF50' }]}
+                                onPress={() => activateFreeCourse()}
+                            >
+                                <Text style={styles.actionButtonText}>
+                                    Kích hoạt
+                                </Text>
+                                <AntDesign name="unlock" size={20} color="#fff" style={styles.buttonIcon} />
                             </TouchableOpacity>
                         ) : (
                             <TouchableOpacity
