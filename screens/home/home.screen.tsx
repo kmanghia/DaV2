@@ -3,14 +3,25 @@ import HeaderComponent from "@/components/header";
 import HomeBannerSlider from "@/components/home-banner-slider";
 import MentorList from "@/components/mentor-list";
 import SearchInput from "@/components/search.input";
-import { ScrollView, View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import ChatButton from "@/components/chat-button";
+import ChatModal from "@/components/chat-modal";
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform } from "react-native";
 import { Raleway_700Bold, Raleway_600SemiBold } from "@expo-google-fonts/raleway";
 import { Nunito_600SemiBold, Nunito_500Medium } from "@expo-google-fonts/nunito";
 import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
 import { router } from "expo-router";
+import { useState, useEffect, useRef } from "react";
+import { useSelector } from "react-redux";
+
+// This is a temporary ID - you should get the actual user ID from your auth system
+const TEMP_USER_ID = "123456";
 
 const HomeScreen = () => {
+    const [isChatVisible, setIsChatVisible] = useState(false);
+    const user = useSelector((state: any) => state.user);
+    const scrollY = useRef(new Animated.Value(0)).current;
+    
     let [fontsLoaded, fontError] = useFonts({
         Raleway_700Bold,
         Raleway_600SemiBold,
@@ -22,14 +33,49 @@ const HomeScreen = () => {
         return null;
     }
 
+    const toggleChat = () => {
+        setIsChatVisible(!isChatVisible);
+    };
+
+    // Calculate header opacity and translateY based on scroll position
+    const headerOpacity = scrollY.interpolate({
+        inputRange: [0, 50],
+        outputRange: [1, 0],
+        extrapolate: 'clamp'
+    });
+
+    const headerTranslateY = scrollY.interpolate({
+        inputRange: [0, 60],
+        outputRange: [0, -100],
+        extrapolate: 'clamp'
+    });
+
     return (
         <View style={styles.container}>
             <StatusBar style="dark" />
+            {/* Apply animation to header */}
+            <Animated.View style={{
+                opacity: headerOpacity,
+                transform: [{ translateY: headerTranslateY }],
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                zIndex: 10,
+                backgroundColor: '#FAFAFA'
+            }}>
             <HeaderComponent />
             <SearchInput homeScreen={true} />
-            <ScrollView 
+            </Animated.View>
+            
+            <Animated.ScrollView 
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.scrollContent}
+                contentContainerStyle={[styles.scrollContent, { paddingTop: 120 }]}
+                onScroll={Animated.event(
+                    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+                    { useNativeDriver: true }
+                )}
+                scrollEventThrottle={16}
             >
                 <HomeBannerSlider />
                 
@@ -43,6 +89,7 @@ const HomeScreen = () => {
                         <TouchableOpacity 
                             onPress={() => router.push("/(tabs)/search")}
                             style={styles.viewAllButton}
+                            activeOpacity={0.7}
                         >
                             <Text style={styles.viewAllText}>Xem tất cả</Text>
                         </TouchableOpacity>
@@ -60,6 +107,7 @@ const HomeScreen = () => {
                         <TouchableOpacity 
                             onPress={() => router.push("/(tabs)/search")}
                             style={styles.viewAllButton}
+                            activeOpacity={0.7}
                         >
                             <Text style={styles.viewAllText}>Xem tất cả</Text>
                         </TouchableOpacity>
@@ -77,6 +125,7 @@ const HomeScreen = () => {
                         <TouchableOpacity 
                             onPress={() => router.push("/(tabs)/search")}
                             style={styles.viewAllButton}
+                            activeOpacity={0.7}
                         >
                             <Text style={styles.viewAllText}>Xem tất cả</Text>
                         </TouchableOpacity>
@@ -94,13 +143,22 @@ const HomeScreen = () => {
                         <TouchableOpacity 
                             onPress={() => router.push("/(tabs)/search")}
                             style={styles.viewAllButton}
+                            activeOpacity={0.7}
                         >
                             <Text style={styles.viewAllText}>Xem tất cả</Text>
                         </TouchableOpacity>
                     </View>
                     <AllCourses displayMode="horizontal" category="recommended" limit={5} hideViewAll={true} />
                 </View>
-            </ScrollView>
+            </Animated.ScrollView>
+            
+            {/* Chat Button and Modal with visibility prop */}
+            <ChatButton onPress={toggleChat} visible={!isChatVisible} />
+            <ChatModal 
+                isVisible={isChatVisible} 
+                onClose={toggleChat} 
+                userId={user.userInfo._id} 
+            />
         </View>
     )
 }
