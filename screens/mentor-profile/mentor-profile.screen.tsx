@@ -33,6 +33,7 @@ const MentorProfileScreen = () => {
     const [students, setStudents] = useState<any[]>([]);
     const [loadingStudents, setLoadingStudents] = useState(false);
     const [studentCount, setStudentCount] = useState(0);
+    const [chatLoading, setChatLoading] = useState(false);
     
     // Rating form state
     const [rating, setRating] = useState(5);
@@ -46,6 +47,45 @@ const MentorProfileScreen = () => {
         Nunito_500Medium,
         Nunito_700Bold,
     });
+
+    const startChat = async () => {
+        if (!mentor) return;
+        
+        try {
+            setChatLoading(true);
+            const accessToken = await AsyncStorage.getItem('access_token');
+            const refreshToken = await AsyncStorage.getItem('refresh_token');
+            
+            if (!accessToken || !refreshToken) {
+                Alert.alert('Thông báo', 'Vui lòng đăng nhập để chat với mentor');
+                setChatLoading(false);
+                return;
+            }
+            
+            const response = await axios.post(`${URL_SERVER}/chat/private`, {
+                mentorId
+            }, {
+                headers: {
+                    'access-token': accessToken,
+                    'refresh-token': refreshToken
+                }
+            });
+            
+            if (response.data.success) {
+                router.push({
+                    pathname: "/chat/[id]",
+                    params: { id: response.data.chat._id }
+                });
+            } else {
+                Alert.alert('Lỗi', 'Không thể tạo cuộc trò chuyện');
+            }
+        } catch (error) {
+            console.error('Error creating chat:', error);
+            Alert.alert('Lỗi', 'Không thể tạo cuộc trò chuyện');
+        } finally {
+            setChatLoading(false);
+        }
+    };
 
     const submitReview = async () => {
         if (!user) {
@@ -233,10 +273,7 @@ const MentorProfileScreen = () => {
             </View>
         </View>
     );
-//     <View style={{width: wp(90), marginTop: 10, marginBottom: 10}} key={course._id}>
-//     <CourseCard item={course} isHorizontal={true}/>
-// </View>
-{/* <CourseCard item={item} isHorizontal={true}/> */}
+
     const renderCoursesTab = () => (
         <View style={styles.tabContent}>
             {mentor.courses?.length > 0 ? (
@@ -405,7 +442,7 @@ const MentorProfileScreen = () => {
                             />
                             <View style={styles.studentInfo}>
                                 <Text style={styles.studentName}>{item.name || 'Học viên'}</Text>
-                                <Text style={styles.studentEmail}>{item.email}</Text>
+                                
                             </View>
                         </View>
                     )}
@@ -432,7 +469,17 @@ const MentorProfileScreen = () => {
                     <Ionicons name="arrow-back" size={24} color="#333" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Chi tiết giảng viên</Text>
-                <View style={{ width: 24 }} />
+                <TouchableOpacity 
+                    style={styles.chatBtn}
+                    onPress={startChat}
+                    disabled={chatLoading}
+                >
+                    {chatLoading ? (
+                        <ActivityIndicator size="small" color="#333" />
+                    ) : (
+                        <Ionicons name="chatbubble-ellipses-outline" size={24} color="#333" />
+                    )}
+                </TouchableOpacity>
             </View>
             
             <ScrollView showsVerticalScrollIndicator={false}>
@@ -460,6 +507,21 @@ const MentorProfileScreen = () => {
                             <Text style={styles.statLabel}>Đánh giá</Text>
                         </View>
                     </View>
+                    
+                    <TouchableOpacity 
+                        style={styles.chatButton}
+                        onPress={startChat}
+                        disabled={chatLoading}
+                    >
+                        {chatLoading ? (
+                            <ActivityIndicator size="small" color="#fff" />
+                        ) : (
+                            <>
+                                <Ionicons name="chatbubble-ellipses-outline" size={18} color="#fff" />
+                                <Text style={styles.chatButtonText}>Chat với giảng viên</Text>
+                            </>
+                        )}
+                    </TouchableOpacity>
                 </View>
                 
                 {/* Tab Navigation */}
@@ -554,11 +616,19 @@ const styles = StyleSheet.create({
     backBtn: {
         padding: 5,
     },
+    chatBtn: {
+        padding: 5,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#f0f0f0',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
     headerTitle: {
         fontFamily: 'Raleway_700Bold',
         fontSize: 18,
         color: '#333',
-        
     },
     profileSection: {
         alignItems: 'center',
@@ -594,6 +664,23 @@ const styles = StyleSheet.create({
         borderRadius: 10,
         padding: 15,
         justifyContent: 'space-between',
+        marginBottom: 15,
+    },
+    chatButton: {
+        flexDirection: 'row',
+        backgroundColor: '#2467EC',
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        borderRadius: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: '90%',
+    },
+    chatButtonText: {
+        color: '#fff',
+        fontFamily: 'Nunito_600SemiBold',
+        fontSize: 16,
+        marginLeft: 8,
     },
     statItem: {
         flex: 1,
