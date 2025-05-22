@@ -3,12 +3,12 @@ import QuestionsCard from "@/components/cards/question.card";
 import ReviewCard from "@/components/cards/review.card";
 import Loader from "@/components/loader";
 import useUser from "@/hooks/useUser";
-import { URL_SERVER, URL_VIDEO, URL_VIDEOS } from "@/utils/url";
-import { Feather, FontAwesome, AntDesign, MaterialIcons } from "@expo/vector-icons";
+import { URL_SERVER, URL_VIDEO, URL_VIDEOS, URL_IMAGES } from "@/utils/url";
+import { Feather, FontAwesome, AntDesign, MaterialIcons, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { Animated, Dimensions, FlatList, Linking, Modal, PanResponder, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator } from "react-native"
+import { Animated, Dimensions, FlatList, Linking, Modal, PanResponder, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator, Image, Alert } from "react-native"
 import { widthPercentageToDP } from "react-native-responsive-screen";
 import { Toast } from "react-native-toast-notifications";
 import app from "../../app.json";
@@ -16,6 +16,7 @@ import { Video, ResizeMode } from 'expo-av';
 import { useDispatch } from "react-redux";
 import * as userActions from '../../utils/store/actions';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Animatable from 'react-native-animatable';
 
 const { width } = Dimensions.get('window');
 
@@ -346,6 +347,244 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
         elevation: 4,
     },
+    repliesContainer: {
+        marginTop: 8,
+        marginBottom: 15,
+        paddingTop: 8,
+        paddingLeft: 15,
+        borderTopWidth: 1,
+        borderTopColor: '#eaeaea',
+        backgroundColor: '#fff',
+        borderRadius: 8,
+        padding: 10,
+    },
+    repliesTitle: {
+        fontSize: 14,
+        fontFamily: "Nunito_600SemiBold",
+        color: '#666',
+        marginBottom: 8,
+    },
+    replyItem: {
+        backgroundColor: '#f2f2f2',
+        borderRadius: 8,
+        padding: 10,
+        marginBottom: 8,
+    },
+    replyHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 6,
+    },
+    replyAvatar: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        marginRight: 8,
+    },
+    replyUserName: {
+        fontSize: 13,
+        fontFamily: "Nunito_600SemiBold",
+        color: '#333',
+    },
+    replyComment: {
+        fontSize: 13,
+        fontFamily: "Nunito_500Medium",
+        color: '#444',
+        paddingLeft: 32,
+    },
+    pinnedQuestionContainer: {
+        borderLeftWidth: 3,
+        borderLeftColor: '#4CAF50',
+        paddingLeft: 2,
+        borderRadius: 8,
+        backgroundColor: 'rgba(76, 175, 80, 0.05)',
+        position: 'relative',
+        paddingTop: 16,
+    },
+    pinnedBadge: {
+        position: 'absolute',
+        top: 0,
+        right: 10,
+        backgroundColor: '#4CAF50',
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        zIndex: 1,
+    },
+    pinnedText: {
+        color: '#fff',
+        fontSize: 12,
+        fontFamily: 'Nunito_600SemiBold',
+        marginLeft: 4,
+    },
+});
+
+const completionStyles = StyleSheet.create({
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 30,
+    },
+    modalContent: {
+        width: '100%',
+        maxWidth: 340,
+        borderRadius: 20,
+        backgroundColor: '#fff',
+        overflow: 'hidden',
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 10,
+        },
+        shadowOpacity: 0.5,
+        shadowRadius: 20,
+        elevation: 20,
+    },
+    headerGradient: {
+        height: 140,
+        width: '100%',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+        backgroundColor: '#1A73E8',
+    },
+    confettiContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    contentContainer: {
+        padding: 25,
+        alignItems: 'center',
+        position: 'relative',
+    },
+    decorationContainer: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 1,
+        pointerEvents: 'none',
+    },
+    star: {
+        position: 'absolute',
+        opacity: 0.8,
+    },
+    trophyContainer: {
+        marginBottom: 15,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    trophyCircle: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 4,
+        },
+        shadowOpacity: 0.3,
+        shadowRadius: 6,
+        elevation: 8,
+    },
+    congratsText: {
+        fontSize: 32,
+        fontFamily: 'Nunito_700Bold',
+        color: '#FF5722',  // Vibrant orange color
+        marginBottom: 15,
+        textAlign: 'center',
+        textShadowColor: 'rgba(0, 0, 0, 0.1)',
+        textShadowOffset: { width: 1, height: 1 },
+        textShadowRadius: 2,
+    },
+    infoContainer: {
+        width: '100%',
+        alignItems: 'center',
+        marginBottom: 25,
+    },
+    messageText: {
+        fontSize: 16,
+        fontFamily: 'Nunito_500Medium',
+        color: '#444',
+        textAlign: 'center',
+        marginBottom: 8,
+    },
+    courseName: {
+        fontSize: 18,
+        fontFamily: 'Nunito_700Bold',
+        color: '#222',
+        textAlign: 'center',
+        marginBottom: 20,
+    },
+    certificateAchievement: {
+        alignItems: 'center',
+        marginTop: 5,
+    },
+    achievementBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        borderRadius: 20,
+        justifyContent: 'center',
+    },
+    achievementText: {
+        fontSize: 16,
+        fontFamily: 'Nunito_700Bold',
+        color: '#FFFFFF',
+        textAlign: 'center',
+    },
+    buttonsContainer: {
+        width: '100%',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginTop: 10,
+        marginRight: 30
+    },
+    laterButton: {
+        paddingVertical: 14,
+        paddingHorizontal: 20,
+        borderRadius: 50,
+        borderWidth: 1,
+        borderColor: '#ddd',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 10,
+    },
+    laterButtonText: {
+        color: '#666',
+        fontSize: 15,
+        fontFamily: 'Nunito_600SemiBold',
+    },
+    viewButton: {
+        paddingVertical: 14,
+        paddingHorizontal: 20,
+        borderRadius: 50,
+        marginRight: 10,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 4,
+        },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+        elevation: 6,
+    },
+    viewButtonText: {
+        color: '#FFF',
+        fontSize: 15,
+        fontFamily: 'Nunito_700Bold',
+    },
 });
 
 const CourseAccessScreen = () => {
@@ -380,6 +619,10 @@ const CourseAccessScreen = () => {
     const [chaptersProgress, setChaptersProgress] = useState<VideoProgressState>({});
     const [isLessonFavorited, setIsLessonFavorited] = useState(false);
     const [isFavoritingLesson, setIsFavoritingLesson] = useState(false);
+    const [showCompletionModal, setShowCompletionModal] = useState(false);
+    const [completionCertificate, setCompletionCertificate] = useState<any>(null);
+    const fadeInBottomAnimation = useRef(new Animated.Value(0)).current;
+    const scaleAnimation = useRef(new Animated.Value(0.8)).current;
     
     const dispatch = useDispatch();
     const videoRef = useRef<Video>(null);
@@ -594,7 +837,23 @@ const CourseAccessScreen = () => {
                 }
             });
             if(response.data){
-                setCourseContentData(response.data.content);
+                // Sort questions in each content item - pinned questions first
+                const sortedContent = response.data.content.map((contentItem: any) => {
+                    if (contentItem.questions && contentItem.questions.length > 0) {
+                        // Sort questions - pinned first, then by date
+                        contentItem.questions.sort((a: any, b: any) => {
+                            // Pinned questions first
+                            if (a.isPinned !== b.isPinned) {
+                                return a.isPinned ? -1 : 1;
+                            }
+                            // Then by date (newest first)
+                            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                        });
+                    }
+                    return contentItem;
+                });
+                
+                setCourseContentData(sortedContent);
             }
             setToken({
                 access: accessToken as string,
@@ -760,11 +1019,68 @@ const CourseAccessScreen = () => {
                 
                 dispatch(userActions.pushProgressOfUser(payload));
                 
-                // Show success message
-                Toast.show("Đã đánh dấu hoàn thành bài học!", {
-                    placement: "bottom",
-                    type: "success"
-                });
+                // Check if all chapters are completed after this update
+                const allChaptersCompleted = newChapters.every(chapter => chapter.isCompleted);
+                
+                if (allChaptersCompleted) {
+                    // Fetch certificate immediately if all chapters are completed
+                    try {
+                        // Fetch certificate data
+                        const certificateResponse = await axios.get(
+                            `${URL_SERVER}/get-user-certificates-by-courseId/${courseId}`,
+                            {
+                                headers: {
+                                    "access-token": accessToken,
+                                    "refresh-token": refreshToken
+                                }
+                            }
+                        );
+                        
+                        if (certificateResponse.data.success && certificateResponse.data.certificates.length > 0) {
+                            const certificate = certificateResponse.data.certificates[0];
+                            setCompletionCertificate(certificate);
+                            
+                            // Show custom completion modal with animation
+                            setShowCompletionModal(true);
+                            
+                            // Start animations
+                            Animated.parallel([
+                                Animated.timing(fadeInBottomAnimation, {
+                                    toValue: 1,
+                                    duration: 800,
+                                    useNativeDriver: true,
+                                }),
+                                Animated.spring(scaleAnimation, {
+                                    toValue: 1,
+                                    friction: 7,
+                                    tension: 40,
+                                    useNativeDriver: true
+                                })
+                            ]).start();
+                            
+                        } else {
+                            // Certificate not found, show a nicer toast
+                            Toast.show("Chứng chỉ của bạn đang được xử lý. Vui lòng kiểm tra lại sau.", {
+                                type: "warning",
+                                placement: "bottom",
+                                duration: 3000
+                            });
+                        }
+                    } catch (error) {
+                        console.error("Error fetching certificate:", error);
+                        Toast.show("Có lỗi xảy ra khi tải chứng chỉ. Vui lòng thử lại sau.", {
+                            type: "error",
+                            placement: "bottom",
+                            duration: 3000
+                        });
+                    }
+                } else {
+                    // Show standard success message
+                    Toast.show("Đã đánh dấu hoàn thành bài học!", {
+                        placement: "bottom",
+                        type: "success"
+                    });
+                }
             } else {
                 throw new Error("Failed to mark chapter as completed");
             }
@@ -1165,7 +1481,7 @@ const CourseAccessScreen = () => {
                                             ) : (
                                                 <>
                                                     <Text style={styles.textBtn}>
-                                                        {hasWatchedEnough ? 'Đánh dấu hoàn thành' : 'Xem video để hoàn thành'}
+                                                        {hasWatchedEnough ? 'Đánh dấu hoàn thành' : 'Chưa hoàn thành'}
                                                     </Text>
                                                     <Feather name="check" size={18} color="white" />
                                                 </>
@@ -1287,25 +1603,33 @@ const CourseAccessScreen = () => {
                             
                             <View style={{ marginBottom: 20 }}>
                                 {courseContentData[activeVideo]?.questions
-                                    ?.slice()
-                                    ?.reverse()
-                                    .map((item: CommentType, index: number) => (
-                                        <Animated.View 
-                                            key={`${index}-f`}
-                                            style={{ 
-                                                opacity: fadeAnim, 
-                                                transform: [{ translateY: slideAnim }],
-                                                marginBottom: 15 
-                                            }}
-                                        >
+                                    ?.map((item: any, index: number) => (
+                                    <Animated.View 
+                                        key={`${index}-f`}
+                                        style={{ 
+                                            opacity: fadeAnim, 
+                                            transform: [{ translateY: slideAnim }],
+                                            marginBottom: 15 
+                                        }}
+                                    >
+                                        <View style={[
+                                            item.isPinned && styles.pinnedQuestionContainer
+                                        ]}>
+                                            {item.isPinned && (
+                                                <View style={styles.pinnedBadge}>
+                                                    <AntDesign name="pushpin" size={14} color="#fff" />
+                                                    <Text style={styles.pinnedText}>Đã ghim</Text>
+                                                </View>
+                                            )}
                                             <QuestionsCard
                                                 item={item}
                                                 fetchCourseContent={FetchCourseContent}
                                                 courseData={data}
                                                 contentId={courseContentData[activeVideo]?._id}
                                             />
-                                        </Animated.View>
-                                    ))}
+                                        </View>
+                                    </Animated.View>
+                                ))}
                             </View>
                         </Animated.View>
                     )}
@@ -1369,6 +1693,33 @@ const CourseAccessScreen = () => {
                                         }}
                                     >
                                         <ReviewCard item={item} />
+                                        
+                                        {/* Display review replies */}
+                                        {item.commentReplies && item.commentReplies.length > 0 && (
+                                            <View style={styles.repliesContainer}>
+                                                <Text style={styles.repliesTitle}>Phản hồi:</Text>
+                                                {item.commentReplies.map((reply: any, replyIndex: number) => (
+                                                    <View key={`reply-${replyIndex}`} style={styles.replyItem}>
+                                                        <View style={styles.replyHeader}>
+                                                            <Image 
+                                                                source={{ 
+                                                                    uri: reply?.user?.avatar?.url 
+                                                                        ? `${URL_IMAGES}/${reply.user.avatar.url}`
+                                                                        : `https://ui-avatars.com/api/?name=${encodeURIComponent(reply.user?.name || 'Mentor')}`
+                                                                }}
+                                                                style={styles.replyAvatar}
+                                                            />
+                                                            <View>
+                                                                <Text style={styles.replyUserName}>
+                                                                    {reply?.user?.name || 'Mentor'}
+                                                                </Text>
+                                                            </View>
+                                                        </View>
+                                                        <Text style={styles.replyComment}>{reply.comment}</Text>
+                                                    </View>
+                                                ))}
+                                            </View>
+                                        )}
                                     </Animated.View>
                                 ))}
                             </View>
@@ -1415,6 +1766,162 @@ const CourseAccessScreen = () => {
                             showsVerticalScrollIndicator={false}
                         />
                     </View>
+                </View>
+            </Modal>
+            
+            {/* Elegant Course Completion Modal */}
+            <Modal
+                visible={showCompletionModal}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setShowCompletionModal(false)}
+            >
+                <View style={completionStyles.modalOverlay}>
+                    <Animated.View 
+                        style={[
+                            completionStyles.modalContent,
+                            { 
+                                opacity: fadeInBottomAnimation,
+                                transform: [
+                                    { translateY: fadeInBottomAnimation.interpolate({
+                                        inputRange: [0, 1],
+                                        outputRange: [50, 0]
+                                    })},
+                                    { scale: scaleAnimation }
+                                ]
+                            }
+                        ]}
+                    >
+                        <LinearGradient
+                            colors={['#3366ff', '#5D87E4']}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={completionStyles.headerGradient}
+                        >
+                            <View style={completionStyles.confettiContainer}>
+                                {/* Animated confetti or stars could be placed here */}
+                                <Animatable.View animation="pulse" easing="ease-out" iterationCount="infinite">
+                                    <MaterialCommunityIcons name="certificate-outline" size={64} color="#FFF" />
+                                </Animatable.View>
+                            </View>
+                        </LinearGradient>
+                        
+                        <View style={completionStyles.contentContainer}>
+                            {/* Add decorative elements */}
+                            <View style={completionStyles.decorationContainer}>
+                                <Animatable.View animation="fadeIn" delay={200} style={[completionStyles.star, { top: -10, left: 20 }]}>
+                                    <Ionicons name="star" size={24} color="#FFD700" />
+                                </Animatable.View>
+                                <Animatable.View animation="fadeIn" delay={300} style={[completionStyles.star, { top: 10, right: 25 }]}>
+                                    <Ionicons name="star" size={18} color="#FFD700" />
+                                </Animatable.View>
+                                <Animatable.View animation="fadeIn" delay={400} style={[completionStyles.star, { bottom: 60, left: 15 }]}>
+                                    <Ionicons name="star" size={16} color="#FFD700" />
+                                </Animatable.View>
+                                <Animatable.View animation="fadeIn" delay={500} style={[completionStyles.star, { bottom: 40, right: 20 }]}>
+                                    <Ionicons name="star" size={20} color="#FFD700" />
+                                </Animatable.View>
+                            </View>
+
+                            <Animatable.View 
+                                style={completionStyles.trophyContainer}
+                                animation="bounceIn"
+                                delay={200}
+                            >
+                                <LinearGradient
+                                    colors={['#FFD700', '#FFA500']}
+                                    style={completionStyles.trophyCircle}
+                                >
+                                    <Animatable.View animation="pulse" easing="ease-out" iterationCount="infinite" duration={2000}>
+                                        <MaterialCommunityIcons name="trophy-award" size={50} color="#FFFFFF" />
+                                    </Animatable.View>
+                                </LinearGradient>
+                            </Animatable.View>
+                            
+                            <Animatable.Text 
+                                style={completionStyles.congratsText}
+                                animation="zoomIn"
+                                delay={400}
+                            >
+                                Chúc mừng!
+                            </Animatable.Text>
+                            
+                            <Animatable.View 
+                                style={completionStyles.infoContainer}
+                                animation="fadeIn"
+                                delay={600}
+                            >
+                                <Text style={completionStyles.messageText}>
+                                    Bạn đã hoàn thành khóa học
+                                </Text>
+                                <Text style={completionStyles.courseName}>
+                                    "{data.name}"
+                                </Text>
+
+                                <Animatable.View 
+                                    animation="fadeIn" 
+                                    delay={800}
+                                    style={completionStyles.certificateAchievement}
+                                >
+                                    <LinearGradient
+                                        colors={['#4CAF50', '#2E7D32']}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 0 }}
+                                        style={completionStyles.achievementBadge}
+                                    >
+                                        <Ionicons name="ribbon" size={16} color="#FFF" style={{marginRight: 5}} />
+                                        <Text style={completionStyles.achievementText}>
+                                            Chứng chỉ khóa học
+                                        </Text>
+                                    </LinearGradient>
+                                </Animatable.View>
+                            </Animatable.View>
+                            
+                            <Animatable.View 
+                                style={completionStyles.buttonsContainer}
+                                animation="fadeIn"
+                                delay={1000}
+                            >
+                                <TouchableOpacity 
+                                    style={completionStyles.laterButton}
+                                    onPress={() => setShowCompletionModal(false)}
+                                >
+                                    <Text style={completionStyles.laterButtonText}>
+                                        Xem sau
+                                    </Text>
+                                </TouchableOpacity>
+                                
+                                <TouchableOpacity
+                                    onPress={() => {
+                                        setShowCompletionModal(false);
+                                        // Navigate to certificate view with certificate data
+                                        router.push({
+                                            pathname: "/(routes)/view-certificate",
+                                            params: { 
+                                                certificate: JSON.stringify(completionCertificate),
+                                                course: JSON.stringify({ 
+                                                    title: completionCertificate.courseNameAtIssue 
+                                                }),
+                                                userName: completionCertificate.userNameAtIssue
+                                            }
+                                        });
+                                    }}
+                                >
+                                    <LinearGradient
+                                        colors={['#3366ff', '#1E3A8A']}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 0 }}
+                                        style={completionStyles.viewButton}
+                                    >
+                                        <Text style={completionStyles.viewButtonText}>
+                                            Xem chứng chỉ
+                                        </Text>
+                                        <Ionicons name="document-text" size={18} color="#FFF" style={{marginLeft: 8}} />
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                            </Animatable.View>
+                        </View>
+                    </Animated.View>
                 </View>
             </Modal>
         </>

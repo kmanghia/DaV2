@@ -25,6 +25,9 @@ import { Colors } from 'react-native/Libraries/NewAppScreen';
 import app from "../../../package.json";
 import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
 import { widthPercentageToDP } from "react-native-responsive-screen";
+import { useDispatch } from "react-redux";
+import * as userActions from "../../../utils/store/actions";
+import { Toast } from "react-native-toast-notifications";
 
 const { width } = Dimensions.get('window');
 
@@ -36,7 +39,8 @@ const CourseDetailsScreen = () => {
     const [activeButton, setActiveButton] = useState("About");
     const { user, loading } = useUser();
     const [isExpanded, setIsExpanded] = useState(false);
-    const { item } = useLocalSearchParams();
+    const { item, progress } = useLocalSearchParams();
+    const [courseProgress, setCourseProgress] = useState(progress ? parseInt(progress as string) : 0);
     const [courseData, setCourseData] = useState<CoursesType>(item ? JSON.parse(item as string) : null);
     const [courseInfo, setCourseInfo] = useState<CoursesType>();
     const [checkPurchased, setCheckPurchased] = useState(false);
@@ -50,6 +54,8 @@ const CourseDetailsScreen = () => {
     const [loadingMentor, setLoadingMentor] = useState(false);
     const [similarCourses, setSimilarCourses] = useState<CoursesType[]>([]);
     const [loadingSimilar, setLoadingSimilar] = useState(false);
+    const [isActivating, setIsActivating] = useState(false);
+    const dispatch = useDispatch();
 
     useEffect(() => {
         if (user?.courses.find((i: any) => i._id === courseData._id)) {
@@ -176,6 +182,16 @@ const CourseDetailsScreen = () => {
     // Activate a free course directly without cart
     const activateFreeCourse = async () => {
         try {
+            // Prevent multiple clicks
+            if (isActivating) return;
+            
+            setIsActivating(true);
+            Toast.show("Đang kích hoạt khóa học...", {
+                type: "normal",
+                placement: "bottom",
+                duration: 2000
+            });
+            
             const accessToken = await AsyncStorage.getItem("access_token");
             const refreshToken = await AsyncStorage.getItem("refresh_token");
 
@@ -201,30 +217,62 @@ const CourseDetailsScreen = () => {
                     total: courseData.courseData?.length || 0,
                 };
                 
-                // Update UI to show purchased state
+                // Update Redux store to reflect purchase
+                dispatch(userActions.pushProgressOfUser(payload));
+                
+                // Update local state
                 setCheckPurchased(true);
                 
-                // Show success message and redirect to course access
-                Alert.alert(
-                    "Kích hoạt thành công",
-                    "Khóa học đã được kích hoạt. Bạn có thể xem ngay bây giờ.",
-                    [
-                        {
-                            text: "Xem khóa học",
-                            onPress: () => router.push({
-                                pathname: "/(routes)/course-access",
-                                params: { courseData: JSON.stringify(courseData), courseId: courseData._id }
-                            })
-                        }
-                    ]
-                );
+                // Add to purchased courses in AsyncStorage for persistence
+                try {
+                    const paymentedStr = await AsyncStorage.getItem("paymented");
+                    const paymented = paymentedStr ? JSON.parse(paymentedStr) : [];
+                    paymented.push({ _id: courseData._id });
+                    await AsyncStorage.setItem("paymented", JSON.stringify(paymented));
+                } catch (err) {
+                    console.log("Error updating paymented storage:", err);
+                }
                 
-                // Refresh courses list
-                await LoadCourse();
+                // Success notification
+                Toast.show("Kích hoạt khóa học thành công!", {
+                    type: "success",
+                    placement: "bottom",
+                    duration: 2000
+                });
+                
+                // Fetch updated course data to make sure all information is fresh
+                const courseResponse = await axios.get(`${URL_SERVER}/get-courses`);
+                const updatedCourseData = courseResponse.data?.courses?.find(
+                    (c: any) => c._id === courseData._id
+                ) || courseData;
+                
+                // Force a small delay to ensure all state updates are processed
+                setTimeout(() => {
+                    setIsActivating(false);
+                    // Navigate to course access with updated course data
+                    router.push({
+                        pathname: "/(routes)/course-access",
+                        params: { 
+                            courseData: JSON.stringify(updatedCourseData), 
+                            courseId: courseData._id,
+                            forceRefresh: "true" // Add a force refresh parameter
+                        }
+                    });
+                }, 500);
+            } else {
+                setIsActivating(false);
+                Toast.show("Không thể kích hoạt khóa học. Vui lòng thử lại sau.", {
+                    type: "error",
+                    placement: "bottom"
+                });
             }
         } catch (error) {
             console.log("Error activating free course:", error);
-            Alert.alert("Lỗi", "Có lỗi xảy ra khi kích hoạt khóa học. Vui lòng thử lại sau.");
+            setIsActivating(false);
+            Toast.show("Có lỗi xảy ra khi kích hoạt khóa học. Vui lòng thử lại sau.", {
+                type: "error",
+                placement: "bottom"
+            });
         }
     }
 
@@ -471,14 +519,79 @@ const CourseDetailsScreen = () => {
                                     <Text style={styles.studentCount}>
                                         {courseData?.purchased} học viên
                                     </Text>
+                                   
                                 </View>
                             </View>
 
                             <View style={styles.categoryContainer}>
-                                    <Text style={styles.category}>
-                                        {courseData?.categories}
+                                <Text style={styles.category}>
+                                    {courseData?.categories}
                                 </Text>
-                                </View>
+                                
+                                {courseProgress === 100 && (
+                                    <TouchableOpacity 
+                                        style={styles.certificateBadge}
+                                        onPress={async () => {
+                                            try {
+                                                Toast.show("Đang tải chứng chỉ...", {
+                                                    type: "normal",
+                                                    placement: "bottom",
+                                                    duration: 2000
+                                                });
+                                                
+                                                const accessToken = await AsyncStorage.getItem("access_token");
+                                                const refreshToken = await AsyncStorage.getItem("refresh_token");
+                                                
+                                                // Fetch certificate data
+                                                const response = await axios.get(
+                                                    `${URL_SERVER}/get-user-certificates-by-courseId/${courseData._id}`,
+                                                    {
+                                                        headers: {
+                                                            "access-token": accessToken,
+                                                            "refresh-token": refreshToken
+                                                        }
+                                                    }
+                                                );
+                                                
+                                                if (response.data.success && response.data.certificates.length > 0) {
+                                                    const certificate = response.data.certificates[0];
+                                                    
+                                                    // Navigate to certificate view with certificate data
+                                                    router.push({
+                                                        pathname: "/(routes)/view-certificate",
+                                                        params: { 
+                                                            certificate: JSON.stringify(certificate),
+                                                            course: JSON.stringify({ 
+                                                                title: certificate.courseNameAtIssue 
+                                                            }),
+                                                            userName: certificate.userNameAtIssue
+                                                        }
+                                                    });
+                                                } else {
+                                                    // Certificate not found, show error message
+                                                    Toast.show("Không tìm thấy chứng chỉ. Vui lòng thử lại sau.", {
+                                                        type: "error",
+                                                        placement: "bottom",
+                                                        duration: 3000
+                                                    });
+                                                }
+                                            } catch (error) {
+                                                console.error("Error fetching certificate:", error);
+                                                Toast.show("Có lỗi xảy ra khi tải chứng chỉ.", {
+                                                    type: "error",
+                                                    placement: "bottom",
+                                                    duration: 3000
+                                                });
+                                            }
+                                        }}
+                                    >
+                                        <Ionicons name="document-text" size={16} color="#fff" />
+                                        <Text style={styles.certificateBadgeText}>Certificate</Text>
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+                            
+                            
                             {/* Tab Navigation */}
                             <View style={styles.tabContainer}>
                                 {['About', 'Lessons', 'Reviews'].map((tab) => (
@@ -768,6 +881,33 @@ const CourseDetailsScreen = () => {
                                             {(showAllReviews ? courseInfo.reviews : courseInfo.reviews.slice(0, 5)).map((item: ReviewType, index: number) => (
                                                 <View key={`${index}-baa`} style={styles.reviewCard}>
                                                     <ReviewCard item={item} key={`${index}-gagagw`}/>
+                                                    
+                                                    {/* Display review replies */}
+                                                    {item.commentReplies && item.commentReplies.length > 0 && (
+                                                        <View style={styles.repliesContainer}>
+                                                            <Text style={styles.repliesTitle}>Phản hồi:</Text>
+                                                            {item.commentReplies.map((reply: any, replyIndex: number) => (
+                                                                <View key={`reply-${replyIndex}`} style={styles.replyItem}>
+                                                                    <View style={styles.replyHeader}>
+                                                                        <Image 
+                                                                            source={{ 
+                                                                                uri: reply?.user?.avatar?.url 
+                                                                                    ? `${URL_IMAGES}/${reply.user.avatar.url}`
+                                                                                    : `https://ui-avatars.com/api/?name=${encodeURIComponent(reply.user?.name || 'Mentor')}`
+                                                                            }}
+                                                                            style={styles.replyAvatar}
+                                                                        />
+                                                                        <View>
+                                                                            <Text style={styles.replyUserName}>
+                                                                                {reply?.user?.name || 'Mentor'}
+                                                                            </Text>
+                                                                        </View>
+                                                                    </View>
+                                                                    <Text style={styles.replyComment}>{reply.comment}</Text>
+                                                                </View>
+                                                            ))}
+                                                        </View>
+                                                    )}
                                                 </View>
                                             ))}
                                             
@@ -824,13 +964,25 @@ const CourseDetailsScreen = () => {
                             </TouchableOpacity>
                         ) : courseData?.isFree ? (
                             <TouchableOpacity
-                                style={[styles.actionButton, { backgroundColor: '#4CAF50' }]}
+                                style={[styles.actionButton, { backgroundColor: isActivating ? '#999' : '#4CAF50' }]}
                                 onPress={() => activateFreeCourse()}
+                                disabled={isActivating}
                             >
-                                <Text style={styles.actionButtonText}>
-                                    Kích hoạt
-                                </Text>
-                                <AntDesign name="unlock" size={20} color="#fff" style={styles.buttonIcon} />
+                                {isActivating ? (
+                                    <>
+                                        <ActivityIndicator size="small" color="#fff" style={{ marginRight: 10 }} />
+                                        <Text style={styles.actionButtonText}>
+                                            Đang kích hoạt...
+                                        </Text>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Text style={styles.actionButtonText}>
+                                            Kích hoạt
+                                        </Text>
+                                        <AntDesign name="unlock" size={20} color="#fff" style={styles.buttonIcon} />
+                                    </>
+                                )}
                             </TouchableOpacity>
                         ) : (
                             <TouchableOpacity
@@ -1183,10 +1335,14 @@ const styles = StyleSheet.create({
     },
     categoryContainer: {
         marginBottom: 20,
+        flexDirection: 'row',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        justifyContent: 'space-between',
     },
     category: {
         fontSize: 14,
-        color: '#666',
+        color: '#0070e0',
         fontFamily: 'Nunito_500Medium',
         backgroundColor: '#f0f0f0',
         paddingVertical: 6,
@@ -1440,6 +1596,94 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#666',
         fontFamily: 'Nunito_500Medium',
+    },
+    repliesContainer: {
+        marginTop: 10,
+        paddingTop: 10,
+        paddingLeft: 15,
+        borderTopWidth: 1,
+        borderTopColor: '#eaeaea',
+    },
+    repliesTitle: {
+        fontSize: 14,
+        fontFamily: 'Nunito_600SemiBold',
+        color: '#666',
+        marginBottom: 8,
+    },
+    replyItem: {
+        backgroundColor: '#f2f2f2',
+        borderRadius: 8,
+        padding: 10,
+        marginBottom: 8,
+    },
+    replyHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 6,
+    },
+    replyAvatar: {
+        width: 32,
+        height: 32,
+        borderRadius: 12,
+        marginRight: 8,
+    },
+    replyUserName: {
+        fontSize: 14,
+        fontFamily: 'Nunito_600SemiBold',
+        color: '#333',
+    },
+    replyComment: {
+        fontSize: 14,
+        fontFamily: 'Nunito_500Medium',
+        color: '#444',
+        paddingLeft: 32,
+    },
+    progressBadge: {
+        backgroundColor: '#0070e0',
+        paddingVertical: 2,
+        paddingHorizontal: 6,
+        borderRadius: 10,
+        marginLeft: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    progressBadgeText: {
+        color: '#fff',
+        fontSize: 12,
+        fontFamily: 'Nunito_700Bold',
+    },
+    progressBarContainer: {
+        marginBottom: 20,
+    },
+    progressBarWrapper: {
+        backgroundColor: '#f0f0f0',
+        borderRadius: 10,
+        height: 10,
+        overflow: 'hidden',
+    },
+    progressBarFill: {
+        height: '100%',
+        backgroundColor: '#0070e0',
+    },
+    progressBarText: {
+        fontSize: 14,
+        fontFamily: 'Nunito_600SemiBold',
+        marginTop: 5,
+    },
+    certificateBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#0070e0',
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        borderRadius: 20,
+        marginLeft: 10,
+    },
+    certificateBadgeText: {
+        color: '#fff',
+        fontSize: 14,
+        fontFamily: 'Nunito_600SemiBold',
+        marginLeft: 5,
     },
 });
 
