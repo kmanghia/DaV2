@@ -82,15 +82,7 @@ interface MentorInfo {
 interface ChatDetails {
   _id: string;
   name?: string;
-  chatType: 'private' | 'course';
   participants: ChatParticipant[];
-  courseId?: {
-    _id: string;
-    name: string;
-    thumbnail: {
-      url: string;
-    };
-  };
   mentorId: {
     _id: string;
     user?: string;
@@ -768,7 +760,6 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
   };
 
   const renderMessage = ({ item }: { item: Message }) => {
-    
     if (!item || typeof item !== 'object' || !item.sender) {
       console.error('Invalid message item:', item);
       return null;
@@ -776,8 +767,6 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
     
     // Ensure sender is an object, not a string
     if (typeof item.sender === 'string') {
-     
-      
       return null;
     }
     
@@ -786,66 +775,50 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
       .filter(p => p._id !== userId)
       .some(p => item.readBy.includes(p._id));
     
-  // Format mpessage timestam
+    // Format message timestamp
     const messageDate = new Date(item.createdAt);
     const now = new Date();
     const isToday = messageDate.toDateString() === now.toDateString();
     const timeString = messageDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
     
-  
     const getSenderName = () => {
-   
       const participantSender = chat?.participants.find(p => p._id === item.sender._id);
       if (participantSender?.name) return participantSender.name;
-      
       
       const mentorUserId = typeof chat?.mentorId === 'object' ? 
         chat?.mentorId?.user : 
         null; 
       if (chat?.mentorInfo?.user) {
-        
         if (mentorUserId && mentorUserId === item.sender._id) {
           return chat.mentorInfo.user.name || "User";
         }
         
-   
         if (!participantSender) {
           return chat.mentorInfo.user.name || "Mentor";
         }
       }
       
-      
-      if (chat?.chatType === 'course' && !participantSender) {
-        return "Mentor"; 
-      }
-      
-   
       if (item.sender.name) return item.sender.name;
       
       // Fallback
       return 'User';
     };
     
-   
     const getSenderAvatar = () => {
-      
       const participantSender = chat?.participants.find(p => p._id === item.sender._id);
       if (participantSender?.avatar?.url) {
         return `${URL_IMAGES}/${participantSender.avatar.url}`;
       }
       
-     
       const mentorUserId = typeof chat?.mentorId === 'object' ? 
         chat?.mentorId?.user : 
         null;
       
-     
       if (chat?.mentorInfo?.user && ((mentorUserId && mentorUserId === item.sender._id) || !participantSender)) {
         if (chat.mentorInfo.user.avatar?.url) {
           return `${URL_IMAGES}/${chat.mentorInfo.user.avatar.url}`;
         }
       }
-      
       
       return `https://ui-avatars.com/api/?name=${encodeURIComponent(getSenderName())}&background=0D8ABC&color=fff`;
     };
@@ -912,11 +885,6 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
           styles.messageContent,
           isOwnMessage ? styles.ownMessageContent : styles.otherMessageContent
         ]}>
-          {!isOwnMessage && chat?.chatType === 'course' && (
-            <Text style={styles.senderName}>
-              {getSenderName()}
-            </Text>
-          )}
           {item.content.trim().length > 0 && (
             <Text style={[
               styles.messageText,
@@ -952,68 +920,40 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
     let avatarUrl = '';
     
     if (chat) {
-      if (chat.chatType === 'private') {
-        
-        const otherParticipant = chat.participants.find(p => p._id !== userId);
-        
-        
-        const mentorUserId = typeof chat.mentorId === 'object' ? 
-          chat.mentorId?.user : 
-          null;
-        
-        
-        if (otherParticipant) {
-          title = otherParticipant.name || 'User';
-          avatarUrl = otherParticipant.avatar?.url || '';
-        } else if (mentorUserId || (chat.mentorId && !otherParticipant)) {
-         
-          if (chat.mentorInfo?.user) {
-            
-            title = chat.mentorInfo.user.name || 'Mentor';
-            avatarUrl = chat.mentorInfo.user.avatar?.url || '';
-          } else {
-            title = 'Mentor';
-           
-          }
+      const otherParticipant = chat.participants.find(p => p._id !== userId);
+      
+      const mentorUserId = typeof chat.mentorId === 'object' ? 
+        chat.mentorId?.user : 
+        null;
+      
+      if (otherParticipant) {
+        title = otherParticipant.name || 'User';
+        avatarUrl = otherParticipant.avatar?.url || '';
+      } else if (mentorUserId || (chat.mentorId && !otherParticipant)) {
+        if (chat.mentorInfo?.user) {
+          title = chat.mentorInfo.user.name || 'Mentor';
+          avatarUrl = chat.mentorInfo.user.avatar?.url || '';
+        } else {
+          title = 'Mentor';
         }
-        
-        subtitle = 'Nhắn tin riêng';
-      } else {
-        
-        title = chat.name || chat.courseId?.name || 'Course Chat';
-        subtitle = `${chat.participants.length} thành viên`;
-        avatarUrl = chat.courseId?.thumbnail?.url || '';
       }
+      
+      subtitle = 'Nhắn tin riêng';
     }
     
-    
     const testFetchMentor = async () => {
-      
       const mentorIdValue = chat?.mentorId ? 
         (typeof chat.mentorId === 'object' ? chat.mentorId._id : chat.mentorId) : 
         null;
       
       if (mentorIdValue && accessToken && refreshToken) {
-
-        
         const mentorInfo = await fetchMentorInfo(mentorIdValue, accessToken, refreshToken);
-       ;
         if (mentorInfo) {
-      
-          
-          
           setChat(currentChat => {
             if (!currentChat) return null;
             return {...currentChat, mentorInfo};
           });
-          
-         
-        } else {
-          
         }
-      } else {
-    
-       
       }
     };
     
@@ -1024,27 +964,14 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
         </TouchableOpacity>
         
         <View style={styles.headerCenter}>
-          {chat?.chatType === 'private' ? (
-            <Image
-              source={{
-                uri: avatarUrl ? 
-                  `${URL_IMAGES}/${avatarUrl}` : 
-                  `https://ui-avatars.com/api/?name=${encodeURIComponent(title)}&background=0D8ABC&color=fff`
-              }}
-              style={styles.headerAvatar}
-            />
-          ) : (
-            <View style={styles.courseAvatarContainer}>
-              {avatarUrl ? (
-                <Image
-                  source={{ uri: `${URL_IMAGES}/${avatarUrl}` }}
-                  style={styles.headerAvatar}
-                />
-              ) : (
-                <MaterialIcons name="group" size={24} color="#fff" />
-              )}
-            </View>
-          )}
+          <Image
+            source={{
+              uri: avatarUrl ? 
+                `${URL_IMAGES}/${avatarUrl}` : 
+                `https://ui-avatars.com/api/?name=${encodeURIComponent(title)}&background=0D8ABC&color=fff`
+            }}
+            style={styles.headerAvatar}
+          />
           
           <View style={styles.headerTitleContainer}>
             <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text>
@@ -1056,18 +983,11 @@ const ChatDetailScreen = ({ chatId: propChatId }: ChatDetailScreenProps) => {
           </View>
         </View>
         
-        {}
         <TouchableOpacity 
           style={{...styles.infoButton, backgroundColor: '#ff9800'}} 
           onPress={testFetchMentor}>
           <Text style={{color: 'white', fontSize: 10}}>Test</Text>
         </TouchableOpacity>
-        
-        {chat?.chatType === 'course' && (
-          <TouchableOpacity style={styles.infoButton}>
-            <Ionicons name="information-circle-outline" size={24} color="#0070e0" />
-          </TouchableOpacity>
-        )}
       </View>
     );
   };
@@ -1487,15 +1407,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    marginRight: 12,
-  },
-  courseAvatarContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#0070e0',
-    justifyContent: 'center',
-    alignItems: 'center',
     marginRight: 12,
   },
   headerTitleContainer: {
