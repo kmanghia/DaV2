@@ -18,13 +18,13 @@ const ReviewCard = ({ item }: { item: ReviewType }) => {
                 <View style={{ flex: 1, justifyContent: "space-around" }}>
                     <View style={{ flexDirection: "row", alignItems: "center" }}>
                         <View>
-                            <Text style={{ fontSize: 18, fontFamily: "Raleway_700Bold" }}>
+                            <Text style={{ fontSize: 14, fontFamily: "Raleway_700Bold" }}>
                                 {item.user.name}
                             </Text>
                             <View>
                                 <Ratings rating={item.rating} />
                             </View>
-                            <Text style={{ fontSize: 16, paddingVertical: 5, paddingHorizontal: 3 }}>
+                            <Text style={{ fontSize: 14, paddingVertical: 5, paddingHorizontal: 3 }}>
                                 {item.comment}
                             </Text>
                         </View>
