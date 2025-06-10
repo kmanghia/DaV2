@@ -50,6 +50,8 @@ const CourseDetailsScreen = () => {
         refresh: ""
     });
     const [showAllReviews, setShowAllReviews] = useState(false);
+    const [courseReviews, setCourseReviews] = useState<any[]>([]);
+    const [loadingReviews, setLoadingReviews] = useState(false);
     const [mentorData, setMentorData] = useState<any>(null);
     const [loadingMentor, setLoadingMentor] = useState(false);
     const [similarCourses, setSimilarCourses] = useState<CoursesType[]>([]);
@@ -63,6 +65,31 @@ const CourseDetailsScreen = () => {
         }
     }, [user])
 
+    const fetchCourseReviews = async (courseId: string) => {
+        if (!courseId) return;
+        
+        try {
+            setLoadingReviews(true);
+            const accessToken = await AsyncStorage.getItem("access_token");
+            const refreshToken = await AsyncStorage.getItem("refresh_token");
+            
+            const response = await axios.get(`${URL_SERVER}/course/${courseId}`, {
+                headers: {
+                    "access-token": accessToken,
+                    "refresh-token": refreshToken
+                }
+            });
+            
+            if (response.data.success && response.data.reviews) {
+                setCourseReviews(response.data.reviews);
+            }
+        } catch (error) {
+            console.log("Error fetching course reviews:", error);
+        } finally {
+            setLoadingReviews(false);
+        }
+    };
+
     const LoadCourse = async () => {
         let paymented: { _id: string }[] = [];
         try {
@@ -72,7 +99,12 @@ const CourseDetailsScreen = () => {
             if (data) {
                 paymented = JSON.parse(data);
             }
-            const response = await axios.get(`${URL_SERVER}/get-courses`);
+            const response = await axios.get(`${URL_SERVER}/get-courses`,{
+                headers: {
+                    'access-token': accessToken,
+                    'refresh-token': refreshToken
+                }
+            });
             const _data: CoursesType = response.data?.courses?.filter((item: any) => item._id === courseData._id)[0];
             if(_data){
                 setCourseData(_data);
@@ -97,10 +129,8 @@ const CourseDetailsScreen = () => {
             }
             setCourseInfo(_data);
             
-            // Fetch similar courses once we have course data
-            if (_data && _data._id) {
-                fetchSimilarCourses(_data._id);
-            }
+            fetchCourseReviews(_data._id);
+            fetchSimilarCourses(_data._id);
         } catch (error) {
             console.log(error);
         }
@@ -114,7 +144,7 @@ const CourseDetailsScreen = () => {
             console.log("Fetching similar courses for courseId:", courseId);
             
             // URL chính xác là //similar, 
-            const response = await axios.get(`${URL_SERVER}/similar/${courseId}`, {
+            const response = await axios.get(`${URL_SERVER}/similarV2/${courseId}`, {
                 headers: {
                     'access-token': accessToken,
                     'refresh-token': refreshToken
@@ -125,8 +155,12 @@ const CourseDetailsScreen = () => {
             console.log("API response structure:", Object.keys(response.data));
             
             // Đọc dữ liệu trực tiếp từ recommendedCourses trả về từ API
-            if (response.data && response.data.success && response.data.recommendedCourses) {
-                console.log("Setting similar courses:", response.data.recommendedCourses);
+            if (response.data && response.data.similar_courses) {
+                console.log("Setting similar courses:", response.data.similar_courses);
+                setSimilarCourses(response.data.similar_courses);
+            } else if (response.data && response.data.recommendedCourses) {
+                // Fallback for backward compatibility
+                console.log("Using recommendedCourses fallback:", response.data.recommendedCourses);
                 setSimilarCourses(response.data.recommendedCourses);
             } else {
                 console.log("No recommended courses found in response");
@@ -241,7 +275,12 @@ const CourseDetailsScreen = () => {
                 });
                 
                 // Fetch updated course data to make sure all information is fresh
-                const courseResponse = await axios.get(`${URL_SERVER}/get-courses`);
+                const courseResponse = await axios.get(`${URL_SERVER}/get-courses`, {
+                    headers: {
+                        'access-token': accessToken,
+                        'refresh-token': refreshToken
+                    }
+                });
                 const updatedCourseData = courseResponse.data?.courses?.find(
                     (c: any) => c._id === courseData._id
                 ) || courseData;
@@ -870,40 +909,52 @@ const CourseDetailsScreen = () => {
                                                     />
                                                 ))}
                                                 <Text style={styles.totalReviews}>
-                                                    ({courseInfo?.reviews?.length || 0} đánh giá)
+                                                    ({courseReviews.length || 0} đánh giá)
                                                 </Text>
                                             </View>
                                         </View>
                                     </View>
                                     
-                                    {courseInfo?.reviews && courseInfo.reviews.length > 0 ? (
+                                    {loadingReviews ? (
+                                        <View style={styles.loadingContainer}>
+                                            <ActivityIndicator size="small" color="#0070e0" />
+                                            <Text style={styles.loadingText}>Đang tải đánh giá...</Text>
+                                        </View>
+                                    ) : courseReviews && courseReviews.length > 0 ? (
                                         <View style={styles.reviewsList}>
-                                            {(showAllReviews ? courseInfo.reviews : courseInfo.reviews.slice(0, 5)).map((item: ReviewType, index: number) => (
+                                            {(showAllReviews ? courseReviews : courseReviews.slice(0, 5)).map((item: any, index: number) => (
                                                 <View key={`${index}-baa`} style={styles.reviewCard}>
-                                                    <ReviewCard item={item} key={`${index}-gagagw`}/>
+                                                    <ReviewCard 
+                                                        item={{
+                                                            user: item.userId,
+                                                            comment: item.comment,
+                                                            rating: item.rating
+                                                        }} 
+                                                        key={`${index}-gagagw`}
+                                                    />
                                                     
                                                     {/* Display review replies */}
-                                                    {item.commentReplies && item.commentReplies.length > 0 && (
+                                                    {item.replies && item.replies.length > 0 && (
                                                         <View style={styles.repliesContainer}>
                                                             <Text style={styles.repliesTitle}>Phản hồi:</Text>
-                                                            {item.commentReplies.map((reply: any, replyIndex: number) => (
+                                                            {item.replies.map((reply: any, replyIndex: number) => (
                                                                 <View key={`reply-${replyIndex}`} style={styles.replyItem}>
                                                                     <View style={styles.replyHeader}>
                                                                         <Image 
                                                                             source={{ 
-                                                                                uri: reply?.user?.avatar?.url 
-                                                                                    ? `${URL_IMAGES}/${reply.user.avatar.url}`
-                                                                                    : `https://ui-avatars.com/api/?name=${encodeURIComponent(reply.user?.name || 'Mentor')}`
+                                                                                uri: reply?.user_id?.avatar?.url 
+                                                                                    ? `${URL_IMAGES}/${reply.user_id.avatar.url}`
+                                                                                    : `https://ui-avatars.com/api/?name=${encodeURIComponent(reply.user_id?.name || 'User')}`
                                                                             }}
                                                                             style={styles.replyAvatar}
                                                                         />
                                                                         <View>
                                                                             <Text style={styles.replyUserName}>
-                                                                                {reply?.user?.name || 'Mentor'}
+                                                                                {reply?.user_id?.name || 'User'}
                                                                             </Text>
                                                                         </View>
                                                                     </View>
-                                                                    <Text style={styles.replyComment}>{reply.comment}</Text>
+                                                                    <Text style={styles.replyComment}>{reply.content}</Text>
                                                                 </View>
                                                             ))}
                                                         </View>
@@ -911,7 +962,7 @@ const CourseDetailsScreen = () => {
                                                 </View>
                                             ))}
                                             
-                                            {!showAllReviews && courseInfo.reviews.length > 5 && (
+                                            {!showAllReviews && courseReviews.length > 5 && (
                                                 <TouchableOpacity 
                                                     style={styles.seeAllButton}
                                                     onPress={() => setShowAllReviews(true)}
@@ -921,7 +972,7 @@ const CourseDetailsScreen = () => {
                                                 </TouchableOpacity>
                                             )}
                                             
-                                            {showAllReviews && courseInfo.reviews.length > 5 && (
+                                            {showAllReviews && courseReviews.length > 5 && (
                                                 <TouchableOpacity 
                                                     style={styles.seeAllButton}
                                                     onPress={() => setShowAllReviews(false)}
@@ -929,8 +980,8 @@ const CourseDetailsScreen = () => {
                                                     <Text style={styles.seeAllButtonText}>Thu gọn</Text>
                                                     <Ionicons name="chevron-up" size={18} color="#0070e0" />
                                                 </TouchableOpacity>
-                                        )}
-                                    </View>
+                                            )}
+                                        </View>
                                     ) : (
                                         <View style={styles.emptyReviews}>
                                             <MaterialIcons name="rate-review" size={60} color="#eee" />

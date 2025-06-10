@@ -519,7 +519,7 @@ const CertificateScreen = () => {
                     </View>
                     <View style={styles.signatureInfo}>
                       <Text style={styles.signatureName}>
-                      Instructor: {certificateData?.mentorNameAtIssue || 'Course Instructor'}
+                      {certificateData?.mentorNameAtIssue || 'Course Instructor'}
                       </Text>
                       <View style={styles.divider} />
                       <Text style={styles.signatureRole}>Elera Courses Manager</Text>
@@ -548,7 +548,7 @@ const CertificateScreen = () => {
               <Text style={styles.downloadButtonText}>Processing...</Text>
             </View>
           ) : (
-            <Text style={styles.downloadButtonText}>Download Certificate</Text>
+            <Text style={styles.downloadButtonText}>Chia sẻ chứng chỉ</Text>
           )}
         </TouchableOpacity>
       </View>

@@ -17,6 +17,7 @@ import { useDispatch } from "react-redux";
 import * as userActions from '../../utils/store/actions';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Animatable from 'react-native-animatable';
+import { gamificationService } from "@/services/gamificationService";
 
 const { width } = Dimensions.get('window');
 
@@ -593,7 +594,7 @@ const CourseAccessScreen = () => {
     const { user } = useUser();
     const { courseData, courseId, lessonId } = useLocalSearchParams();
     const data: CoursesType = JSON.parse(courseData as string);
-    const [courseReviews, setCourseReviews] = useState<ReviewType[]>(data?.reviews ? data.reviews : []);
+    const [courseReviews, setCourseReviews] = useState<any[]>([]);
 
     const [courseContentData, setCourseContentData] = useState<CourseDataType[]>([]);
     const [activeVideo, setActiveVideo] = useState(0);
@@ -630,6 +631,13 @@ const CourseAccessScreen = () => {
     // Animation values
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(50)).current;
+    
+    // Add these state variables near line 307 where other state variables are defined
+    const [videoLoading, setVideoLoading] = useState(true);
+    const [tabLoading, setTabLoading] = useState(false);
+    const [submittingQuestion, setSubmittingQuestion] = useState(false);
+    const [submittingReview, setSubmittingReview] = useState(false);
+    const [fetchingContent, setFetchingContent] = useState(true);
     
     useEffect(() => {
         Animated.parallel([
@@ -695,6 +703,7 @@ const CourseAccessScreen = () => {
 
     const loadVideoAndChapterState = async () => {
         try {
+            setVideoLoading(true);
             let _lessonInfo = courseProgress?.chapters.find(chapter => chapter.chapterId === courseContentData[activeVideo]?._id);
             let _clone = {
                 chapterId: _lessonInfo?.chapterId || courseContentData[activeVideo]?._id,
@@ -753,7 +762,37 @@ const CourseAccessScreen = () => {
             }
         } catch (error) {
             console.log("Error loading video:", error);
+        } finally {
+            setVideoLoading(false);
             setIsLoading(false);
+        }
+    };
+
+    const fetchCourseReviews = async () => {
+        try {
+            const accessToken = await AsyncStorage.getItem("access_token");
+            const refreshToken = await AsyncStorage.getItem("refresh_token");
+            
+            const response = await axios.get(`${URL_SERVER}/course/${courseId}`, {
+                headers: {
+                    "access-token": accessToken,
+                    "refresh-token": refreshToken
+                }
+            });
+            
+            if (response.data.success && response.data.reviews) {
+                setCourseReviews(response.data.reviews);
+                
+                // Check if user has already reviewed this course
+                const hasUserReview = response.data.reviews.some((review: any) => 
+                    review.userId._id === user?._id || 
+                    (typeof review.userId === 'string' && review.userId === user?._id)
+                );
+                
+                setReviewAvailable(hasUserReview);
+            }
+        } catch (error) {
+            console.log("Error fetching course reviews:", error);
         }
     };
 
@@ -762,12 +801,7 @@ const CourseAccessScreen = () => {
             const subscription = async () => {
                 await loadProgressOfUser();
                 await FetchCourseContent();
-                const isReviewAvailable = courseReviews.find(
-                    (i: any) => i?.user?._id === user?._id
-                )
-                if (isReviewAvailable) {
-                    setReviewAvailable(true);
-                }
+                await fetchCourseReviews();
             }
             subscription();
         }, [])
@@ -828,6 +862,7 @@ const CourseAccessScreen = () => {
 
     const FetchCourseContent = async () => {
         try {
+            setFetchingContent(true);
             const accessToken = await AsyncStorage.getItem("access_token");
             const refreshToken = await AsyncStorage.getItem("refresh_token");
             const response = await axios.get(`${URL_SERVER}/get-course-content/${courseId}`, {
@@ -858,20 +893,22 @@ const CourseAccessScreen = () => {
             setToken({
                 access: accessToken as string,
                 refresh: refreshToken as string
-            })
-            setIsLoading(false);
+            });
         } catch (error) {
             console.log(error);
-            setIsLoading(false);
             router.push({
                 pathname: "/(routes)/course-details",
                 params: { item: JSON.stringify(data), courseId: data?._id },
             });
+        } finally {
+            setFetchingContent(false);
+            setIsLoading(false);
         }
     }
 
     const OnHandleQuestionSubmit = async () => {
         try {
+            setSubmittingQuestion(true);
             const accessToken = await AsyncStorage.getItem("access_token");
             const refreshToken = await AsyncStorage.getItem("refresh_token");
             await axios.put(`${URL_SERVER}/add-question`, {
@@ -892,15 +929,28 @@ const CourseAccessScreen = () => {
             await FetchCourseContent();
         } catch (error) {
             console.log(error);
+            Toast.show("Đã xảy ra lỗi khi gửi câu hỏi", {
+                placement: "bottom",
+                type: "error"
+            });
+        } finally {
+            setSubmittingQuestion(false);
         }
     }
 
     const OnHandleReviewSubmit = async () => {
         try {
+            setSubmittingReview(true);
             const accessToken = await AsyncStorage.getItem("access_token");
             const refreshToken = await AsyncStorage.getItem("refresh_token");
-            await axios.put(`${URL_SERVER}/add-review/${courseId}`,
-                { review, rating },
+            
+            // Use the new review API endpoint
+            await axios.post(`${URL_SERVER}/course/create`, 
+                { 
+                    rating,
+                    comment: review, 
+                    courseId 
+                },
                 {
                     headers: {
                         "access-token": accessToken,
@@ -908,18 +958,35 @@ const CourseAccessScreen = () => {
                     }
                 }
             );
+            
             setRating(1);
             setReview("");
-            let currentCourseReview = courseReviews;
-            let _data: ReviewType = {
-                user: user!,
-                comment: review,
-                rating: rating
-            }
-            currentCourseReview = [_data, ...currentCourseReview];
-            setCourseReviews(currentCourseReview);
-        } catch (error) {
+            setReviewAvailable(true);
+            
+            // Refresh reviews after submitting a new one
+            await fetchCourseReviews();
+            
+            Toast.show("Đánh giá đã được gửi thành công!", {
+                placement: "bottom",
+                type: "success"
+            });
+        } catch (error: any) {
             console.log(error);
+            
+            // Show more specific error message if available
+            if (error.response && error.response.data && error.response.data.message) {
+                Toast.show(error.response.data.message, {
+                    placement: "bottom",
+                    type: "error"
+                });
+            } else {
+                Toast.show("Đã xảy ra lỗi khi gửi đánh giá", {
+                    placement: "bottom",
+                    type: "error"
+                });
+            }
+        } finally {
+            setSubmittingReview(false);
         }
     }
 
@@ -1022,7 +1089,53 @@ const CourseAccessScreen = () => {
                 // Check if all chapters are completed after this update
                 const allChaptersCompleted = newChapters.every(chapter => chapter.isCompleted);
                 
+                // Add gamification points for completing a lesson
+                try {
+                    console.log("[DEBUG] Bắt đầu thêm điểm cho hoàn thành bài học");
+                    console.log("[DEBUG] Tên bài học:", courseContentData[activeVideo]?.title);
+                    
+                    // Give points for completing a lesson (10 points)
+                    const pointsResponse = await gamificationService.addPoints(10, `Hoàn thành bài học "${courseContentData[activeVideo]?.title}"`);
+                    console.log("[DEBUG] gamificationService.addPoints response:", pointsResponse);
+                    
+                    // Show points toast
+                    Toast.show(`+10 điểm! Đã hoàn thành bài học`, {
+                        placement: "top",
+                        type: "success",
+                        duration: 2000
+                    });
+                } catch (error) {
+                    console.error("[ERROR] Error adding gamification points:", error);
+                    if (axios.isAxiosError(error)) {
+                        console.error("[ERROR] Status:", error.response?.status);
+                        console.error("[ERROR] Response data:", JSON.stringify(error.response?.data));
+                    }
+                }
+                
                 if (allChaptersCompleted) {
+                    // Add extra points for completing entire course
+                    try {
+                        console.log("[DEBUG] Bắt đầu thêm điểm cho hoàn thành khóa học");
+                        console.log("[DEBUG] Tên khóa học:", data.name);
+                        
+                        // Give bonus points for finishing entire course (50 points)
+                        const coursePointsResponse = await gamificationService.addPoints(50, `Hoàn thành khóa học "${data.name}"`);
+                        console.log("[DEBUG] gamificationService.addPoints (course) response:", coursePointsResponse);
+                        
+                        // Show course completion points toast
+                        Toast.show(`+50 điểm! Chúc mừng bạn đã hoàn thành khóa học`, {
+                            placement: "top",
+                            type: "success",
+                            duration: 3000
+                        });
+                    } catch (error) {
+                        console.error("[ERROR] Error adding course completion points:", error);
+                        if (axios.isAxiosError(error)) {
+                            console.error("[ERROR] Status:", error.response?.status);
+                            console.error("[ERROR] Response data:", JSON.stringify(error.response?.data));
+                        }
+                    }
+                    
                     // Fetch certificate immediately if all chapters are completed
                     try {
                         // Fetch certificate data
@@ -1247,9 +1360,42 @@ const CourseAccessScreen = () => {
         }
     };
 
+    // Add reply to a review function
+    const handleAddReply = async (reviewId: string, content: string) => {
+        try {
+            const accessToken = await AsyncStorage.getItem("access_token");
+            const refreshToken = await AsyncStorage.getItem("refresh_token");
+            
+            await axios.post(
+                `${URL_SERVER}/course/reply/${reviewId}`,
+                { content },
+                {
+                    headers: {
+                        "access-token": accessToken,
+                        "refresh-token": refreshToken
+                    }
+                }
+            );
+            
+            // Refresh reviews to show the new reply
+            await fetchCourseReviews();
+            
+            Toast.show("Phản hồi đã được gửi thành công!", {
+                placement: "bottom",
+                type: "success"
+            });
+        } catch (error) {
+            console.log("Error adding reply:", error);
+            Toast.show("Đã xảy ra lỗi khi gửi phản hồi", {
+                placement: "bottom",
+                type: "error"
+            });
+        }
+    };
+
     return (
         <>
-            {isLoading ? (
+            {isLoading || fetchingContent ? (
                 <Loader />
             ) : (
                 <ScrollView style={styles.container}>
@@ -1266,28 +1412,53 @@ const CourseAccessScreen = () => {
                         </TouchableOpacity>
                         
                         {videoData ? (
-                            <Video 
-                                ref={videoRef}
-                                source={{
-                                    uri: videoData.startsWith('http') ? videoData : `${URL_VIDEO}${videoData}`,
-                                    headers: {
-                                        'access-token': token.access,
-                                        'refresh-token': token.refresh
-                                    }
-                                }}
-                                style={{width: '100%', height: '100%'}}
-                                useNativeControls
-                                resizeMode={ResizeMode.CONTAIN}
-                                onError={(error) => console.log('Video Error:', error)}
-                                onLoad={() => console.log('Video loaded successfully')}
-                                shouldPlay={false}
-                                isLooping={false}
-                                isMuted={false}
-                                onPlaybackStatusUpdate={onPlaybackStatusUpdate}
-                            />
+                            <>
+                                <Video 
+                                    ref={videoRef}
+                                    source={{
+                                        uri: videoData.startsWith('http') ? videoData : `${URL_VIDEO}${videoData}`,
+                                        headers: {
+                                            'access-token': token.access,
+                                            'refresh-token': token.refresh
+                                        }
+                                    }}
+                                    style={{width: '100%', height: '100%'}}
+                                    useNativeControls
+                                    resizeMode={ResizeMode.CONTAIN}
+                                    onError={(error) => console.log('Video Error:', error)}
+                                    onLoad={() => {
+                                        console.log('Video loaded successfully');
+                                        setVideoLoading(false);
+                                    }}
+                                    shouldPlay={false}
+                                    isLooping={false}
+                                    isMuted={false}
+                                    onPlaybackStatusUpdate={onPlaybackStatusUpdate}
+                                />
+                                {videoLoading && (
+                                    <View style={{
+                                        position: 'absolute',
+                                        top: 0,
+                                        left: 0,
+                                        right: 0,
+                                        bottom: 0,
+                                        justifyContent: 'center',
+                                        alignItems: 'center',
+                                        backgroundColor: 'rgba(0,0,0,0.3)'
+                                    }}>
+                                        <ActivityIndicator size="large" color="#FFFFFF" />
+                                        <Text style={{color: '#FFFFFF', marginTop: 10, fontFamily: "Nunito_600SemiBold"}}>
+                                            Đang tải video...
+                                        </Text>
+                                    </View>
+                                )}
+                            </>
                         ) : (
-                            <View style={{width: '100%', height: 200, backgroundColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center'}}>
-                                <Text>Loading video...</Text>
+                            <View style={{width: '100%', height: '100%', backgroundColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center'}}>
+                                <ActivityIndicator size="large" color="#2467EC" />
+                                <Text style={{marginTop: 10, color: '#666', fontFamily: "Nunito_500Medium"}}>
+                                    Đang tải video...
+                                </Text>
                             </View>
                         )}
                     </Animated.View>
@@ -1401,170 +1572,181 @@ const CourseAccessScreen = () => {
                                 { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }
                             ]}
                         >
-                            <View style={{marginVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 10}}>
-                                <TouchableOpacity
-                                    onPress={() => router.push({
-                                        pathname: '/course-quizz',
-                                        params: {
-                                            courseData: courseData,
-                                            activeVideo: activeVideo,
-                                            id: courseId
-                                        }
-                                    })}
-                                >
-                                    <LinearGradient
-                                        colors={['#4A90E2', '#5A9AE6']}
-                                        start={{ x: 0, y: 0 }}
-                                        end={{ x: 1, y: 0 }}
-                                        style={styles.actionButton}
-                                    >
-                                        <Text style={styles.textBtn}>
-                                            Kiểm tra
-                                        </Text>
-                                        <AntDesign name="form" size={16} color="white" />
-                                    </LinearGradient>
-                                </TouchableOpacity>
-                                
-                                {/* Nút yêu thích bài học */}
-                                <TouchableOpacity
-                                    onPress={toggleLessonFavorite}
-                                    disabled={isFavoritingLesson}
-                                >
-                                    <LinearGradient
-                                        colors={isLessonFavorited ? ['#FF6B6B', '#FF8E8E'] : ['#F0F0F0', '#E0E0E0']}
-                                        start={{ x: 0, y: 0 }}
-                                        end={{ x: 1, y: 0 }}
-                                        style={styles.favoriteButton}
-                                    >
-                                        {isFavoritingLesson ? (
-                                            <ActivityIndicator size="small" color={isLessonFavorited ? "white" : "#666"} />
-                                        ) : (
-                                            <AntDesign 
-                                                name={isLessonFavorited ? "heart" : "hearto"} 
-                                                size={20} 
-                                                color={isLessonFavorited ? "white" : "#666"} 
-                                            />
-                                        )}
-                                    </LinearGradient>
-                                </TouchableOpacity>
-                                
-                                { lessonInfo.isCompleted ? (
-                                    <TouchableOpacity
-                                        style={{marginLeft: 'auto'}}
-                                    >
-                                        <LinearGradient
-                                            colors={['#2E9E7A', '#35B58D']}
-                                            start={{ x: 0, y: 0 }}
-                                            end={{ x: 1, y: 0 }}
-                                            style={styles.actionButton}
-                                        >
-                                            <Text style={styles.textBtn}>
-                                                Đã hoàn thành
-                                            </Text>
-                                            <Feather name="check-circle" size={18} color="white" />
-                                        </LinearGradient>
-                                    </TouchableOpacity>
-                                ):(
-                                    <TouchableOpacity
-                                        onPress={() => OnMarkAsCompleted()}
-                                        style={{marginLeft: 'auto'}}
-                                        disabled={!hasWatchedEnough || isMarkingCompleted}
-                                    >
-                                        <LinearGradient
-                                            colors={hasWatchedEnough ? ['#4776E6', '#5D87E4'] : ['#a0a0a0', '#888888']}
-                                            start={{ x: 0, y: 0 }}
-                                            end={{ x: 1, y: 0 }}
-                                            style={styles.actionButton}
-                                        >
-                                            {isMarkingCompleted ? (
-                                                <ActivityIndicator size="small" color="white" />
-                                            ) : (
-                                                <>
-                                                    <Text style={styles.textBtn}>
-                                                        {hasWatchedEnough ? 'Đánh dấu hoàn thành' : 'Chưa hoàn thành'}
-                                                    </Text>
-                                                    <Feather name="check" size={18} color="white" />
-                                                </>
-                                            )}
-                                        </LinearGradient>
-                                    </TouchableOpacity>
-                                )}
-                            </View>
-                            
-                            {!lessonInfo.isCompleted && !hasWatchedEnough && (
-                                <View>
-                                    <Text style={styles.progressText}>
-                                        Bạn đã xem {Math.round(videoProgress * 100)}% - Cần xem ít nhất 90% video để đánh dấu hoàn thành
+                            {tabLoading ? (
+                                <View style={{alignItems: 'center', justifyContent: 'center', padding: 40}}>
+                                    <ActivityIndicator size="large" color="#2467EC" />
+                                    <Text style={{marginTop: 10, color: '#666', fontFamily: "Nunito_500Medium"}}>
+                                        Đang tải...
                                     </Text>
-                                    <View style={styles.progressBarContainer}>
-                                        <View style={[styles.progressBar, {width: `${videoProgress * 100}%`}]} />
-                                    </View>
                                 </View>
-                            )}
-                            
-                            <View style={{marginTop: 20}}>
-                                <View style={styles.referenceContainer}>
-                                    <Text style={{ fontSize: 20, fontWeight: "bold", color: "#1a1a2e" }}>
-                                        Nội dung
-                                    </Text>
-                                    <TouchableOpacity
-                                        onPress={() => router.push({
-                                            pathname: '/(routes)/note-lesson',
-                                            params: {
-                                                courseId: courseId,
-                                                courseDataId: lessonInfo.chapterId, 
-                                                name: data.name,
-                                                nameLesson: `${courseContentData[activeVideo].title}`
-                                            }
-                                        })}
-                                    >
-                                        <LinearGradient
-                                            colors={['#E67E5D', '#E67E5D']}
-                                            start={{ x: 0, y: 0 }}
-                                            end={{ x: 1, y: 0 }}
-                                            style={styles.noteButton}
+                            ) : (
+                                <>
+                                    <View style={{marginVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 10}}>
+                                        <TouchableOpacity
+                                            onPress={() => router.push({
+                                                pathname: '/course-quizz',
+                                                params: {
+                                                    courseData: courseData,
+                                                    activeVideo: activeVideo,
+                                                    id: courseId
+                                                }
+                                            })}
                                         >
-                                            <FontAwesome name="sticky-note" size={20} color="white" />
-                                        </LinearGradient>
-                                    </TouchableOpacity> 
-                                </View>
-                                
-                                <View style={styles.contentFrame}>
-                                    {courseContentData[activeVideo]?.links && courseContentData[activeVideo]?.links.length > 0 && (
-                                        <>
-                                            {courseContentData[activeVideo]?.links.map((link: LinkType, index: number) => (
-                                                <TouchableOpacity
-                                                    key={`indexavjkahfkahkas-${index}`}
-                                                    style={styles.linkItem}
-                                                    onPress={() => {
-                                                        // Open the URL in external browser
-                                                        if (link.url) {
-                                                            Linking.openURL(link.url).catch(err => 
-                                                                console.error("Couldn't open URL: ", err)
-                                                            );
-                                                        }
-                                                    }}
+                                            <LinearGradient
+                                                colors={['#4A90E2', '#5A9AE6']}
+                                                start={{ x: 0, y: 0 }}
+                                                end={{ x: 1, y: 0 }}
+                                                style={styles.actionButton}
+                                            >
+                                                <Text style={styles.textBtn}>
+                                                    Kiểm tra
+                                                </Text>
+                                                <AntDesign name="form" size={16} color="white" />
+                                            </LinearGradient>
+                                        </TouchableOpacity>
+                                        
+                                        {/* Nút yêu thích bài học */}
+                                        <TouchableOpacity
+                                            onPress={toggleLessonFavorite}
+                                            disabled={isFavoritingLesson}
+                                        >
+                                            <LinearGradient
+                                                colors={isLessonFavorited ? ['#FF6B6B', '#FF8E8E'] : ['#F0F0F0', '#E0E0E0']}
+                                                start={{ x: 0, y: 0 }}
+                                                end={{ x: 1, y: 0 }}
+                                                style={styles.favoriteButton}
+                                            >
+                                                {isFavoritingLesson ? (
+                                                    <ActivityIndicator size="small" color={isLessonFavorited ? "white" : "#666"} />
+                                                ) : (
+                                                    <AntDesign 
+                                                        name={isLessonFavorited ? "heart" : "hearto"} 
+                                                        size={20} 
+                                                        color={isLessonFavorited ? "white" : "#666"} 
+                                                    />
+                                                )}
+                                            </LinearGradient>
+                                        </TouchableOpacity>
+                                        
+                                        { lessonInfo.isCompleted ? (
+                                            <TouchableOpacity
+                                                style={{marginLeft: 'auto'}}
+                                            >
+                                                <LinearGradient
+                                                    colors={['#2E9E7A', '#35B58D']}
+                                                    start={{ x: 0, y: 0 }}
+                                                    end={{ x: 1, y: 0 }}
+                                                    style={styles.actionButton}
                                                 >
-                                                    <Text style={styles.linkTitle}>
-                                                        Tham khảo: {link.title}
+                                                    <Text style={styles.textBtn}>
+                                                        Đã hoàn thành
                                                     </Text>
-                                                </TouchableOpacity>
-                                            ))}
-                                        </>
+                                                    <Feather name="check-circle" size={18} color="white" />
+                                                </LinearGradient>
+                                            </TouchableOpacity>
+                                        ):(
+                                            <TouchableOpacity
+                                                onPress={() => OnMarkAsCompleted()}
+                                                style={{marginLeft: 'auto'}}
+                                                disabled={!hasWatchedEnough || isMarkingCompleted}
+                                            >
+                                                <LinearGradient
+                                                    colors={hasWatchedEnough ? ['#4776E6', '#5D87E4'] : ['#a0a0a0', '#888888']}
+                                                    start={{ x: 0, y: 0 }}
+                                                    end={{ x: 1, y: 0 }}
+                                                    style={styles.actionButton}
+                                                >
+                                                    {isMarkingCompleted ? (
+                                                        <ActivityIndicator size="small" color="white" />
+                                                    ) : (
+                                                        <>
+                                                            <Text style={styles.textBtn}>
+                                                                {hasWatchedEnough ? 'Đánh dấu hoàn thành' : 'Chưa hoàn thành'}
+                                                            </Text>
+                                                            <Feather name="check" size={18} color="white" />
+                                                        </>
+                                                    )}
+                                                </LinearGradient>
+                                            </TouchableOpacity>
+                                        )}
+                                    </View>
+                                    
+                                    {!lessonInfo.isCompleted && !hasWatchedEnough && (
+                                        <View>
+                                            <Text style={styles.progressText}>
+                                                Bạn đã xem {Math.round(videoProgress * 100)}% - Cần xem ít nhất 90% video để đánh dấu hoàn thành
+                                            </Text>
+                                            <View style={styles.progressBarContainer}>
+                                                <View style={[styles.progressBar, {width: `${videoProgress * 100}%`}]} />
+                                            </View>
+                                        </View>
                                     )}
                                     
-                                    <Text 
-                                        style={[
-                                            styles.description, 
-                                            courseContentData[activeVideo]?.links && 
-                                            courseContentData[activeVideo]?.links.length > 0 ? 
-                                            styles.descriptionWithBorder : null
-                                        ]}
-                                    >
-                                        {courseContentData[activeVideo]?.description}
-                                    </Text>
-                                </View>
-                            </View>
+                                    <View style={{marginTop: 20}}>
+                                        <View style={styles.referenceContainer}>
+                                            <Text style={{ fontSize: 20, fontWeight: "bold", color: "#1a1a2e" }}>
+                                                Nội dung
+                                            </Text>
+                                            <TouchableOpacity
+                                                onPress={() => router.push({
+                                                    pathname: '/(routes)/note-lesson',
+                                                    params: {
+                                                        courseId: courseId,
+                                                        courseDataId: lessonInfo.chapterId, 
+                                                        name: data.name,
+                                                        nameLesson: `${courseContentData[activeVideo].title}`
+                                                    }
+                                                })}
+                                            >
+                                                <LinearGradient
+                                                    colors={['#E67E5D', '#E67E5D']}
+                                                    start={{ x: 0, y: 0 }}
+                                                    end={{ x: 1, y: 0 }}
+                                                    style={styles.noteButton}
+                                                >
+                                                    <FontAwesome name="sticky-note" size={20} color="white" />
+                                                </LinearGradient>
+                                            </TouchableOpacity> 
+                                        </View>
+                                        
+                                        <View style={styles.contentFrame}>
+                                            {courseContentData[activeVideo]?.links && courseContentData[activeVideo]?.links.length > 0 && (
+                                                <>
+                                                    {courseContentData[activeVideo]?.links.map((link: LinkType, index: number) => (
+                                                        <TouchableOpacity
+                                                            key={`indexavjkahfkahkas-${index}`}
+                                                            style={styles.linkItem}
+                                                            onPress={() => {
+                                                                // Open the URL in external browser
+                                                                if (link.url) {
+                                                                    Linking.openURL(link.url).catch(err => 
+                                                                        console.error("Couldn't open URL: ", err)
+                                                                    );
+                                                                }
+                                                            }}
+                                                        >
+                                                            <Text style={styles.linkTitle}>
+                                                                Tham khảo: {link.title}
+                                                            </Text>
+                                                        </TouchableOpacity>
+                                                    ))}
+                                                </>
+                                            )}
+                                            
+                                            <Text 
+                                                style={[
+                                                    styles.description, 
+                                                    courseContentData[activeVideo]?.links && 
+                                                    courseContentData[activeVideo]?.links.length > 0 ? 
+                                                    styles.descriptionWithBorder : null
+                                                ]}
+                                            >
+                                                {courseContentData[activeVideo]?.description}
+                                            </Text>
+                                        </View>
+                                    </View>
+                                </>
+                            )}
                         </Animated.View>
                     )}
                     
@@ -1585,7 +1767,7 @@ const CourseAccessScreen = () => {
                                 />
                                 <View style={{ flexDirection: "row", justifyContent: "flex-end", marginTop: 15 }}>
                                     <TouchableOpacity
-                                        disabled={question === ""}
+                                        disabled={question === "" || submittingQuestion}
                                         onPress={() => OnHandleQuestionSubmit()}
                                     >
                                         <LinearGradient
@@ -1594,8 +1776,14 @@ const CourseAccessScreen = () => {
                                             end={{ x: 1, y: 0 }}
                                             style={styles.actionButton}
                                         >
-                                            <Text style={styles.textBtn}>Gửi câu hỏi</Text>
-                                            <Feather name="send" size={16} color="white" />
+                                            {submittingQuestion ? (
+                                                <ActivityIndicator size="small" color="#FFFFFF" />
+                                            ) : (
+                                                <>
+                                                    <Text style={styles.textBtn}>Gửi câu hỏi</Text>
+                                                    <Feather name="send" size={16} color="white" />
+                                                </>
+                                            )}
                                         </LinearGradient>
                                     </TouchableOpacity>
                                 </View>
@@ -1666,7 +1854,7 @@ const CourseAccessScreen = () => {
                                     />
                                     <View style={{ flexDirection: "row", justifyContent: "flex-end", marginTop: 15 }}>
                                         <TouchableOpacity
-                                            disabled={review === ""}
+                                            disabled={review === "" || submittingReview}
                                             onPress={() => OnHandleReviewSubmit()}
                                         >
                                             <LinearGradient
@@ -1675,8 +1863,14 @@ const CourseAccessScreen = () => {
                                                 end={{ x: 1, y: 0 }}
                                                 style={styles.actionButton}
                                             >
-                                                <Text style={styles.textBtn}>Gửi đánh giá</Text>
-                                                <AntDesign name="star" size={16} color="white" />
+                                                {submittingReview ? (
+                                                    <ActivityIndicator size="small" color="#FFFFFF" />
+                                                ) : (
+                                                    <>
+                                                        <Text style={styles.textBtn}>Gửi đánh giá</Text>
+                                                        <AntDesign name="star" size={16} color="white" />
+                                                    </>
+                                                )}
                                             </LinearGradient>
                                         </TouchableOpacity>
                                     </View>
@@ -1684,7 +1878,7 @@ const CourseAccessScreen = () => {
                             )}
                             
                             <View style={{ rowGap: 15 }}>
-                                {courseReviews.map((item: ReviewType, index: number) => (
+                                {courseReviews.map((item: any, index: number) => (
                                     <Animated.View 
                                         key={`${index}-efa`}
                                         style={{ 
@@ -1692,30 +1886,38 @@ const CourseAccessScreen = () => {
                                             transform: [{ translateY: slideAnim }] 
                                         }}
                                     >
-                                        <ReviewCard item={item} />
+                                        <ReviewCard 
+                                            item={{
+                                                user: item.userId,
+                                                comment: item.comment,
+                                                rating: item.rating,
+                                               
+                                            }} 
+                                            key={`${index}-gagagw`}
+                                        />
                                         
                                         {/* Display review replies */}
-                                        {item.commentReplies && item.commentReplies.length > 0 && (
+                                        {item.replies && item.replies.length > 0 && (
                                             <View style={styles.repliesContainer}>
                                                 <Text style={styles.repliesTitle}>Phản hồi:</Text>
-                                                {item.commentReplies.map((reply: any, replyIndex: number) => (
+                                                {item.replies.map((reply: any, replyIndex: number) => (
                                                     <View key={`reply-${replyIndex}`} style={styles.replyItem}>
                                                         <View style={styles.replyHeader}>
                                                             <Image 
                                                                 source={{ 
-                                                                    uri: reply?.user?.avatar?.url 
-                                                                        ? `${URL_IMAGES}/${reply.user.avatar.url}`
-                                                                        : `https://ui-avatars.com/api/?name=${encodeURIComponent(reply.user?.name || 'Mentor')}`
+                                                                    uri: reply?.user_id?.avatar?.url 
+                                                                        ? `${URL_IMAGES}/${reply.user_id.avatar.url}`
+                                                                        : `https://ui-avatars.com/api/?name=${encodeURIComponent(reply.user_id?.name || 'User')}`
                                                                 }}
                                                                 style={styles.replyAvatar}
                                                             />
                                                             <View>
                                                                 <Text style={styles.replyUserName}>
-                                                                    {reply?.user?.name || 'Mentor'}
+                                                                    {reply?.user_id?.name || 'User'}
                                                                 </Text>
                                                             </View>
                                                         </View>
-                                                        <Text style={styles.replyComment}>{reply.comment}</Text>
+                                                        <Text style={styles.replyComment}>{reply.content}</Text>
                                                     </View>
                                                 ))}
                                             </View>
